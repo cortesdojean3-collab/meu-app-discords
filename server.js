@@ -1,6 +1,9 @@
 const http = require('http'), https = require('https'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { WebSocketServer } = require('ws');
-const PORT = +process.env.PORT || 3000, HOST = '0.0.0.0', INVITE = process.env.INVITE_CODE || '', REPO = process.env.GITHUB_REPO || '';
+const PORT = +process.env.PORT || 3000, HOST = '0.0.0.0', INVITE = process.env.INVITE_CODE || '';
+const DEFAULT_REPO = 'cortesdojean3-collab/meu-app-discords';
+const configuredRepo = process.env.GITHUB_REPO || DEFAULT_REPO;
+const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(configuredRepo) ? configuredRepo : DEFAULT_REPO;
 const DB = process.env.DATA_FILE || path.join(__dirname, 'data.json'), START = Date.now();
 const FILES = { win: 'Papo-win.exe', mac: 'Papo-mac.dmg', linux: 'Papo-linux.AppImage' };
 const MIME = { '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
@@ -112,14 +115,61 @@ async function api(req, res, u) {
   json(res, 404, { erro: 'Não encontrado.' });
 }
 /* ---------- downloads ---------- */
-const rc = {};
-const remote = name => new Promise(r => {
-  const c = rc[name]; if (c && Date.now() - c.t < 3e5) return r(c.v);
-  const q = https.request({ method: 'HEAD', host: 'github.com', path: `/${REPO}/releases/latest/download/${name}`, timeout: 5000 }, x => { const v = x.statusCode >= 300 && x.statusCode < 400; rc[name] = { v, t: Date.now() }; r(v); x.resume(); });
-  q.on('error', () => r(false)); q.on('timeout', () => { q.destroy(); r(false); }); q.end();
-});
+let releaseCache = { at: 0, value: null, pending: null };
+function requestReleases(url) {
+  return new Promise(resolve => {
+    const req = https.get(url, {
+      headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'Papo-downloads' }, timeout: 6000
+    }, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { body += chunk; if (body.length > 1e6) req.destroy(new Error('resposta grande demais')); });
+      res.on('end', () => { let value = null; if (res.statusCode === 200) try { value = JSON.parse(body); } catch (e) {} resolve(value); });
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', () => resolve(null));
+  });
+}
+function latestRelease() {
+  if (releaseCache.pending) return releaseCache.pending;
+  if (Date.now() - releaseCache.at < 5 * 60e3) return Promise.resolve(releaseCache.value);
+  releaseCache.pending = requestReleases(`https://api.github.com/repos/${REPO}/releases/latest`).then(value => {
+    releaseCache = { at: Date.now(), value, pending: null };
+    return value;
+  });
+  return releaseCache.pending;
+}
+let historyCache = { at: 0, value: null, pending: null };
+function releaseHistory() {
+  if (historyCache.pending) return historyCache.pending;
+  if (Date.now() - historyCache.at < 5 * 60e3) return Promise.resolve(historyCache.value);
+  historyCache.pending = requestReleases(`https://api.github.com/repos/${REPO}/releases?per_page=10`).then(value => {
+    const releases = Array.isArray(value) ? value.filter(r => !r.draft && !r.prerelease) : null;
+    historyCache = { at: Date.now(), value: releases, pending: null };
+    return releases;
+  });
+  return historyCache.pending;
+}
 const local = n => fs.existsSync(path.join(__dirname, 'downloads', n));
-async function avail() { const o = {}; for (const [k, n] of Object.entries(FILES)) o[k] = local(n) || (REPO ? await remote(n) : false); return o; }
+async function avail() {
+  const [release, history] = await Promise.all([latestRelease(), releaseHistory()]);
+  const assets = release && Array.isArray(release.assets) ? release.assets : [];
+  const platforms = {};
+  for (const [key, name] of Object.entries(FILES)) {
+    const asset = assets.find(a => a.name === name && a.size > 0);
+    platforms[key] = asset ? { name, size: asset.size, url: asset.browser_download_url, downloads: asset.download_count || 0 } : null;
+  }
+  const checksums = assets.find(a => a.name === 'SHA256SUMS.txt' && a.size > 0);
+  const older = (history || []).filter(r => r.tag_name !== (release && release.tag_name)).map(r => ({
+    version: r.tag_name, name: r.name || r.tag_name, publishedAt: r.published_at, url: r.html_url,
+    checksums: (r.assets || []).find(a => a.name === 'SHA256SUMS.txt' && a.size > 0)?.browser_download_url || null,
+    assets: Object.fromEntries(Object.entries(FILES).map(([key, name]) => {
+      const asset = (r.assets || []).find(a => a.name === name && a.size > 0);
+      return [key, asset ? { name, size: asset.size, url: asset.browser_download_url } : null];
+    }))
+  })).filter(r => Object.values(r.assets).some(Boolean));
+  return { lookupOk: history !== null || release !== null, win: !!platforms.win || local(FILES.win), mac: !!platforms.mac || local(FILES.mac), linux: !!platforms.linux || local(FILES.linux), version: release && release.tag_name || null, publishedAt: release && release.published_at || null, notes: release && release.body || '', releaseUrl: release && release.html_url || null, checksums: checksums && checksums.browser_download_url || null, assets: platforms, releases: older };
+}
 /* ---------- http ---------- */
 function serve(res, file) {
   fs.stat(file, (e, s) => {
@@ -136,15 +186,19 @@ const srv = http.createServer(async (req, res) => {
     if (u.startsWith('/api/')) { if (u === '/api/downloads') return json(res, 200, await avail()); return await api(req, res, u); }
     if (u === '/health') {
       let ok = true; if (pool) { try { await Promise.race([pool.query('select 1'), new Promise((_, j) => setTimeout(() => j(new Error('timeout')), 3000))]); } catch (e) { ok = false; } }
-      return json(res, ok ? 200 : 503, { ok, uptime: Math.round((Date.now() - START) / 1000), rssMB: Math.round(process.memoryUsage().rss / 1048576), clientes: C.size, usuarios: Object.keys(data.users).length, banco: pool ? 'postgres' : 'arquivo', persistente: !!pool, github: REPO || null, downloads: fs.existsSync(path.join(__dirname, 'downloads')) ? fs.readdirSync(path.join(__dirname, 'downloads')) : [] });
+      return json(res, ok ? 200 : 503, { ok, uptime: Math.round((Date.now() - START) / 1000), rssMB: Math.round(process.memoryUsage().rss / 1048576), clientes: C.size, usuarios: Object.keys(data.users).length, banco: pool ? 'postgres' : 'arquivo', persistente: !!pool, alertaPersistencia: pool ? null : 'DATABASE_URL não configurada; o arquivo local pode ser perdido em um redeploy.', github: REPO, downloads: fs.existsSync(path.join(__dirname, 'downloads')) ? fs.readdirSync(path.join(__dirname, 'downloads')) : [] });
     }
     if (u === '/') return serve(res, path.join(__dirname, 'public/index.html'));
     if (u === '/app') return serve(res, path.join(__dirname, 'public/app.html'));
+    if (u === '/downloads' || u === '/downloads/') return serve(res, path.join(__dirname, 'public/downloads.html'));
     if (u === '/ice') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(process.env.ICE_SERVERS || '[{"urls":["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]'); }
     if (u.startsWith('/downloads/')) {
       const n = path.basename(u);
       if (local(n)) return serve(res, path.join(__dirname, 'downloads', n));
-      if (REPO && Object.values(FILES).includes(n)) { res.writeHead(302, { Location: `https://github.com/${REPO}/releases/latest/download/${n}` }); return res.end(); }
+      if (Object.values(FILES).includes(n)) {
+        const release = await latestRelease(), asset = release && (release.assets || []).find(a => a.name === n && a.size > 0);
+        if (asset) { res.writeHead(302, { Location: asset.browser_download_url }); return res.end(); }
+      }
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Instalador ainda nao publicado.');
     }
     const base = path.join(__dirname, 'public'), f = path.normalize(path.join(base, u));
@@ -222,3 +276,4 @@ async function shutdown(sig, code) {
 }
 process.on('SIGTERM', () => shutdown('SIGTERM')); process.on('SIGINT', () => shutdown('SIGINT'));
 load().then(() => srv.listen(PORT, HOST, () => log('info', 'proc', 'Papo no ar', { porta: PORT }))).catch(e => { log('error', 'db', 'falha ao abrir o banco', { m: e.message }); process.exit(1); });
+
