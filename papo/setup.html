@@ -1,0 +1,9 @@
+<!DOCTYPE html><html lang="pt-BR"><meta charset="utf-8"><title>Papo</title>
+<body style="margin:0;height:100vh;display:grid;place-items:center;background:#1e1b2e;color:#fff;font:16px system-ui,sans-serif">
+<div style="width:min(440px,90vw);display:flex;flex-direction:column;gap:10px">
+<img src="build/icon.png" width="72" height="72" alt="LD"><h2 style="margin:0">Endereço do servidor</h2>
+<p style="margin:0;color:#c4b5fd">Cole o endereço do site do Papo (ex.: https://meuapp.onrender.com)</p>
+<input id="u" style="padding:10px;border-radius:6px;border:0;font:inherit" placeholder="https://..." autofocus>
+<button style="padding:10px;border:0;border-radius:6px;background:#7c3aed;color:#fff;font:inherit;cursor:pointer" onclick="go()">Conectar</button></div>
+<script>function go(){let v=document.getElementById('u').value.trim().replace(/\/$/,'');if(!v)return;if(!/^https?:\/\//.test(v))v='https://'+v;papo.save(v)}
+document.getElementById('u').addEventListener('keydown',e=>e.key==='Enter'&&go())</script></body></html>

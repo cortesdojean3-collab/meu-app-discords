@@ -1,0 +1,1 @@
+{"name":"Papo","short_name":"Papo","start_url":"/app","scope":"/","display":"standalone","background_color":"#1e1b2e","theme_color":"#7c3aed","icons":[{"src":"/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
