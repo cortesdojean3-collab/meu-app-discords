@@ -2,7 +2,7 @@
   'use strict';
 
   const PREF_KEY = 'papo.extras.v1';
-  const basePrefs = { kombi: true, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, gifts: true, giftAudio: true, hidden: {} };
+  const basePrefs = { kombi: true, kombiIntro: true, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, gifts: true, giftAudio: true, hidden: {} };
   let prefs;
   try { prefs = { ...basePrefs, ...JSON.parse(localStorage.getItem(PREF_KEY) || '{}') }; }
   catch { prefs = { ...basePrefs }; }
@@ -27,6 +27,7 @@
     .papo-bloom{position:absolute;z-index:8;left:50%;top:45%;width:104px;height:120px;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 8px 18px #e879f966);animation:papoBloomOut 3.6s ease forwards}.papo-bloom svg{width:100%;height:100%;overflow:visible}.papo-bloom .stem{stroke:#4ade80;stroke-width:4;stroke-linecap:round;stroke-dasharray:55;stroke-dashoffset:55;animation:papoStem .5s .05s ease forwards}.papo-bloom .petal{fill:#f9a8d4;stroke:#fce7f3;stroke-width:1.5;transform-box:fill-box;transform-origin:center;transform:scale(.08);animation:papoPetal .55s cubic-bezier(.2,.9,.3,1.3) forwards}.papo-bloom .p2{animation-delay:.12s;fill:#f472b6;rotate:72deg}.papo-bloom .p3{animation-delay:.18s;fill:#fbcfe8;rotate:144deg}.papo-bloom .p4{animation-delay:.24s;fill:#ec4899;rotate:216deg}.papo-bloom .p5{animation-delay:.30s;fill:#f9a8d4;rotate:288deg}.papo-bloom .center{fill:#fef08a;transform-box:fill-box;transform-origin:center;transform:scale(0);animation:papoPetal .4s .36s ease forwards}.papo-particle{position:absolute;z-index:8;width:7px;height:11px;border-radius:80% 10% 80% 10%;background:#f9a8d4;pointer-events:none;animation:papoFloat 1.8s ease-out forwards}.papo-gift-toast{position:fixed;z-index:50;right:18px;bottom:18px;width:min(360px,calc(100vw - 36px));padding:14px;background:var(--bg2);border:1px solid var(--bd);border-radius:16px;box-shadow:0 18px 55px #0009;display:grid;gap:8px;animation:rise .2s var(--ease)}.papo-gift-player{position:fixed;z-index:51;right:18px;bottom:18px;width:min(320px,calc(100vw - 24px));padding:10px;background:var(--bg2);border:1px solid var(--bd);border-radius:16px;box-shadow:0 18px 55px #0009}.papo-gift-player iframe{display:block;width:100%;height:200px;border:0;border-radius:10px}.papo-gift-player .papo-player-controls{display:flex;align-items:center;gap:8px;margin-top:8px}.papo-gift-player input[type=range]{min-width:70px;flex:1}.papo-gift-player button{padding:6px 9px}
     body.papo-kombi,body.papo-kombi button,body.papo-kombi a,body.papo-kombi .ch,body.papo-kombi .mm,body.papo-kombi .vm{cursor:url('/kombi-cursor.svg') 8 8,auto}body.papo-kombi input,body.papo-kombi textarea{cursor:text}body.papo-kombi input[type=range],body.papo-kombi select{cursor:pointer}
     html.papo-reduce-motion *,html.papo-reduce-motion *::before,html.papo-reduce-motion *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
+    .papo-update-notice{position:fixed;z-index:48;left:50%;bottom:18px;transform:translateX(-50%);width:min(560px,calc(100vw - 28px));padding:12px 14px;display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--bg2);color:var(--tx);border:1px solid var(--ac2);border-radius:14px;box-shadow:0 16px 48px #0008}.papo-update-notice span{font-size:13px}.papo-version-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.papo-diagnostics{white-space:pre-wrap;word-break:break-word;background:var(--bg0);border:1px solid var(--bd);border-radius:10px;padding:10px;color:var(--mu);font:12px/1.5 ui-monospace,monospace}
     @keyframes papoStem{to{stroke-dashoffset:0}}@keyframes papoPetal{to{transform:scale(1)}}@keyframes papoBloomOut{0%,65%{opacity:1}100%{opacity:0;transform:translate(-50%,-65%) scale(1.08)}}@keyframes papoFloat{0%{opacity:0;transform:translate(0,0) rotate(0)}15%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-70px) rotate(180deg)}}
     @media(max-width:820px){#side{width:75vw;max-width:300px;min-width:0}#mem{display:none}.papo-trigger{opacity:1}#tabs{overflow:auto;flex-wrap:nowrap}#tabs button{white-space:nowrap}.wide{width:min(640px,96vw)}.papo-context{min-width:200px}}
     @media(max-width:520px){#side{width:70vw}#top{padding:0 10px}#msgs{padding:12px 10px}#cform{padding:0 10px 12px}.papo-gift-player{right:8px;bottom:8px}.papo-gift-toast{right:8px;bottom:8px}}
@@ -48,6 +49,7 @@
     const appearance = q('.pane[data-t="p"]');
     if (appearance) {
       addCheck(appearance, 'papoKombiCursor', 'Usar cursor da Kombi branca e roxa', prefs.kombi, v => { prefs.kombi = v; applyLocalLook(); });
+      addCheck(appearance, 'papoKombiIntro', 'Mostrar a abertura da Kombi uma vez por sessão', prefs.kombiIntro, v => { prefs.kombiIntro = v; persist(); });
       addCheck(appearance, 'papoReduceMotion', 'Reduzir animações', prefs.reduceMotion, v => { prefs.reduceMotion = v; applyLocalLook(); });
     }
     const tabs = q('#tabs');
@@ -57,12 +59,17 @@
     addCheck(giftPane, 'papoGifts', 'Exibir animações de presentes', prefs.gifts, v => { prefs.gifts = v; });
     addCheck(giftPane, 'papoGiftAudio', 'Permitir convite para ouvir música de presente', prefs.giftAudio, v => { prefs.giftAudio = v; });
     tabs.append(giftTab); settings.append(giftPane);
+    const appTab = document.createElement('button'); appTab.dataset.t = 'app'; appTab.textContent = 'Aplicativo';
+    const appPane = document.createElement('div'); appPane.className = 'pane'; appPane.dataset.t = 'app';
+    appPane.innerHTML = '<h4>Versão e diagnóstico</h4><div class="papo-version-row"><b>Versão do site</b><span id="papoVersionValue">Verificando…</span><button type="button" id="papoCheckVersion">Verificar agora</button><a href="/downloads">Versões publicadas</a></div><p id="papoVersionStatus" role="status" style="color:var(--mu);font-size:13px">O site recebe atualizações pelo servidor. Se uma nova versão entrar no ar, você poderá recarregar para aplicá-la.</p><section id="papoDesktopUpdate" hidden><h4>Aplicativo desktop</h4><p id="papoDesktopVersion">Versão instalada: verificando…</p><p id="papoDesktopStatus" role="status">Pronto para verificar atualizações.</p><progress id="papoDesktopProgress" max="100" value="0" hidden></progress><div class="row"><button type="button" id="papoDesktopCheck">Verificar atualização desktop</button><button type="button" id="papoDesktopInstall" class="ac" hidden>Instalar e reiniciar</button></div></section><h4>Diagnóstico local</h4><pre id="papoDiagnostics" class="papo-diagnostics">Pronto para coletar o estado da conexão.</pre><button type="button" id="papoCopyDiagnostics">Copiar diagnóstico</button>';
+    tabs.append(appTab); settings.append(appPane);
     const activate = b => {
       tabs.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
       settings.querySelectorAll('.pane').forEach(p => p.style.display = p.dataset.t === b.dataset.t ? 'block' : 'none');
       if (b.dataset.t === 'c') loadSess(); if (b.dataset.t !== 'v') stopPrev();
     };
     giftTab.addEventListener('click', () => activate(giftTab));
+    appTab.addEventListener('click', () => { activate(appTab); checkVersion(true); checkDesktopUpdates(); refreshDiagnostics(); });
     search.addEventListener('input', () => {
       const term = search.value.trim().toLocaleLowerCase('pt-BR');
       const buttons = [...tabs.querySelectorAll('button')];
@@ -80,6 +87,49 @@
     const m = q('#papoReduceMotion'); if (m) m.checked = !!prefs.reduceMotion;
   }
   applyLocalLook();
+
+  const pageBuild = q('meta[name="papo-build"]')?.content || '';
+  let lastVersion = null;
+  function showReloadNotice(version) {
+    if (q('#papoUpdateNotice')) return;
+    const bar = document.createElement('div'); bar.id = 'papoUpdateNotice'; bar.className = 'papo-update-notice'; bar.setAttribute('role','status');
+    const text = document.createElement('span'); text.textContent = `O Papo ${version} foi atualizado no servidor. Recarregue para aplicar.`;
+    const reload = document.createElement('button'); reload.type = 'button'; reload.className = 'ac'; reload.textContent = 'Recarregar'; reload.onclick = () => location.reload();
+    const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Depois'; close.setAttribute('aria-label','Fechar aviso de atualização'); close.onclick = () => bar.remove();
+    bar.append(text,reload,close); document.body.append(bar);
+  }
+  async function checkVersion(manual) {
+    const value = q('#papoVersionValue'), note = q('#papoVersionStatus'), button = q('#papoCheckVersion');
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch('/api/version',{cache:'no-store',credentials:'same-origin'});
+      if (!response.ok) throw new Error('Não consegui consultar o servidor.');
+      const current = await response.json(); lastVersion = current;
+      if (value) value.textContent = `${current.version} · ${current.build}`;
+      if (note) note.textContent = current.build !== pageBuild ? 'Há uma versão nova do site. Recarregue a página para aplicá-la.' : (manual ? 'O site está atualizado.' : 'A versão do site está atual.');
+      if (current.build !== pageBuild) showReloadNotice(current.version);
+      return current;
+    } catch (error) {
+      if (note) note.textContent = error.message || 'Não consegui verificar agora. Tente novamente.';
+      return null;
+    } finally { if (button) button.disabled = false; }
+  }
+  function refreshDiagnostics() {
+    const output = q('#papoDiagnostics'); if (!output) return;
+    const states = typeof pcs === 'undefined' ? [] : Object.values(pcs).map(c => c.pc.connectionState);
+    const socketState = typeof ws === 'undefined' || !ws ? 'desconectado' : ['conectando','conectado','fechando','fechado'][ws.readyState] || 'desconhecido';
+    const data = {versao:lastVersion?.version||'consultando', navegador:navigator.userAgent, tela:`${innerWidth}×${innerHeight}`, servidor:socketState, participantes:typeof room==='undefined'?0:room.peers().length, conexoesWebRTC:states};
+    output.textContent = JSON.stringify(data,null,2);
+  }
+  q('#papoCheckVersion')?.addEventListener('click',()=>checkVersion(true));
+  const nativeUpdates=window.papo?.updates;
+  function updateDesktopState(info){const status=q('#papoDesktopStatus'),progress=q('#papoDesktopProgress'),install=q('#papoDesktopInstall');if(!status||!info)return;const messages={checking:'Procurando uma versão nova…',available:'Nova versão encontrada. O download começou.',downloading:'Baixando atualização…',downloaded:'Atualização pronta para instalar.',notAvailable:'O aplicativo desktop está atualizado.',unsupported:'Atualizações nativas estão disponíveis apenas no aplicativo desktop instalado.',error:'Não consegui atualizar: '+(info.message||'tente novamente mais tarde.')};status.textContent=messages[info.state]||'Estado da atualização recebido.';if(info.state==='downloading')status.textContent+=' '+Math.round(info.percent||0)+'%';if(info.state==='downloaded'&&info.version)status.textContent='Versão '+info.version+' pronta para instalar.';if(progress){progress.hidden=info.state!=='downloading';if(info.state==='downloading')progress.value=info.percent||0}if(install)install.hidden=info.state!=='downloaded'}
+  async function checkDesktopUpdates(){if(!nativeUpdates)return;const panel=q('#papoDesktopUpdate');if(panel)panel.hidden=false;try{const version=await window.papo.appVersion();q('#papoDesktopVersion').textContent='Versão instalada: '+version}catch{}try{await nativeUpdates.check()}catch(error){updateDesktopState({state:'error',message:error.message})}}
+  if(nativeUpdates){nativeUpdates.onState(updateDesktopState);q('#papoDesktopCheck')?.addEventListener('click',checkDesktopUpdates);q('#papoDesktopInstall')?.addEventListener('click',()=>nativeUpdates.install())}
+  q('#papoCopyDiagnostics')?.addEventListener('click',async()=>{refreshDiagnostics();try{await navigator.clipboard.writeText(q('#papoDiagnostics').textContent);toast('Diagnóstico copiado. Nenhuma conversa ou credencial foi incluída.')}catch{toast('Não consegui copiar. Selecione o texto do diagnóstico e copie manualmente.')}});
+  checkVersion(false); refreshDiagnostics();
+  setInterval(()=>{if(!document.hidden)checkVersion(false)},300000);
+  document.addEventListener('pointerover',event=>{const b=event.target.closest?.('button');if(!b)return;const label=(b.textContent||'').trim().replace(/\s+/g,' ');if(label&&!b.title)b.title=label;if(label&&!b.getAttribute('aria-label'))b.setAttribute('aria-label',label)},true);
 
   function toast(text) {
     const n = document.createElement('div'); n.className = 'papo-gift-toast'; n.setAttribute('role', 'status');
@@ -121,7 +171,7 @@
   function addVolume(parent, kind, uid) { const p = volPanel(kind,uid); p.classList.add('open'); parent.append(p); }
   function mutedLocally(kind,uid) { const v=cfg.pvol[kind+':'+uid];return !!v?.m||Number(v?.v)===0; }
   function toggleLocalMute(kind,uid) { const key=kind+':'+uid,old=cfg.pvol[key]||{v:100,m:false},wasMuted=mutedLocally(kind,uid);cfg.pvol[key]={v:wasMuted&&Number(old.v)===0?100:(old.v==null?100:old.v),m:!wasMuted};saveCfg();Object.keys(R).forEach(id=>{if(R[id].uid===uid&&R[id].kind===kind)applyVol(id)});syncTargets(); }
-  function updateAudioBadge(el,uid) { if(!uid)return;const states=[];if(mutedLocally('voice',uid))states.push('Voz silenciada');if(el.dataset.videoTile==='1'&&mutedLocally('share',uid))states.push('Transmissão silenciada');let badge=el.querySelector(':scope > .papo-audio-state');if(!states.length){badge?.remove();return}if(!badge){badge=document.createElement('span');badge.className='papo-audio-state';badge.setAttribute('aria-label','Áudio silenciado localmente');const trigger=el.querySelector(':scope > .papo-trigger');el.insertBefore(badge,trigger||null)}badge.textContent='🔇 '+states.join(' · ');badge.title=states.join(' · '); }
+  function updateAudioBadge(el,uid) { if(!uid)return;const states=[];if(mutedLocally('voice',uid))states.push('Voz silenciada');if(el.dataset.videoTile==='1'&&mutedLocally('share',uid))states.push('Transmissão silenciada');let badge=el.querySelector(':scope > .papo-audio-state');if(!states.length){badge?.remove();return}if(!badge){badge=document.createElement('span');badge.className='papo-audio-state';badge.setAttribute('aria-label','Áudio silenciado localmente');const trigger=el.querySelector(':scope > .papo-trigger');el.insertBefore(badge,trigger||null)}badge.textContent='🄇 '+states.join(' · ');badge.title=states.join(' · '); }
   function viewProfile(uid) {
     const p = pr(uid); const modal = document.createElement('div'); modal.className = 'modal'; modal.style.display='grid'; modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true'); modal.setAttribute('aria-label','Perfil de '+p.name);
     const box = document.createElement('div'); box.className='box'; const av = document.createElement('div'); av.className='av'; av.style.width='72px'; av.style.height='72px'; av.style.background=p.avatar?`url(${p.avatar}) center/cover`:p.color||'var(--ac)'; if(!p.avatar)av.textContent=(p.name||'?')[0].toUpperCase();
@@ -137,7 +187,7 @@
     if(hasShare){entries.push({label:'Ajustar áudio da transmissão',run:()=>addVolume(menu,'share',uid)});entries.push({label:mutedLocally('share',uid)?'Ativar áudio da transmissão':'Silenciar áudio da transmissão',run:()=>{toggleLocalMute('share',uid);closeMenu()}})}
     entries.push({label:'Restaurar volumes para 100%',run:()=>{Object.keys(cfg.pvol||{}).filter(k=>k.endsWith(':'+uid)).forEach(k=>delete cfg.pvol[k]);saveCfg();Object.keys(R).filter(k=>R[k].uid===uid).forEach(applyVol);syncTargets();closeMenu();toast('Volumes restaurados.')}});
     if(target?.dataset.videoTile==='1')entries.push({label:'Abrir transmissão em tela cheia',run:()=>{closeMenu();target.requestFullscreen?.().catch(()=>toast('Tela cheia não está disponível.'))}});
-    if(myVc&&findPeer(uid)?.presence?.vc===myVc)entries.push({label:'🌸 Enviar presente',run:()=>sendGift(uid)});
+    if(myVc&&findPeer(uid)?.presence?.vc===myVc)entries.push({label:'𞼸 Enviar presente',run:()=>sendGift(uid)});
     const hidden=!!prefs.hidden[uid];entries.push({label:hidden?'Mostrar participante':'Ocultar visual para mim',run:()=>{prefs.hidden[uid]=!hidden;persist();applyHidden();closeMenu()}});
     return entries;
   }
@@ -161,8 +211,8 @@
     const peerEl=target.closest('.mm,.vm,.tile');
     if(peerEl){const uid=peerEl.dataset.uid||'';if(uid){openMenu(x,y,addUserActions([],uid,peerEl));return}}
     const msg=target.closest('.m');
-    if(msg){const entries=[{label:'Copiar texto',run:()=>{closeMenu();copy(msg.querySelector('.t')?.textContent||'')}},{label:'Responder',run:()=>{msg.querySelector('.act [aria-label="Responder"]')?.click();closeMenu()}},{label:'Reagir com 👍',run:()=>{msg.querySelector('.act [aria-label="Reagir"]')?.click();closeMenu()}}];if(msg.dataset.author===myId){entries.push('-', {label:'Editar mensagem',run:()=>{msg.querySelector('.act [aria-label="Editar"]')?.click();closeMenu()}},{label:'Excluir mensagem',run:()=>{msg.querySelector('.act [aria-label="Excluir"]')?.click();closeMenu()}})}openMenu(x,y,entries);return}
-    const ch=target.closest('.ch');if(ch){const id=ch.dataset.channelId,voice=ch.dataset.channelType==='v';const entries=[{label:voice?(myVc===id?'Sair da sala':'Entrar na sala'):'Abrir canal',run:()=>{closeMenu();if(voice&&myVc&&myVc!==id)stopMusic();voice?joinVc(id):openCh(id)}},{label:'Copiar nome do canal',run:()=>{closeMenu();copy(ch.textContent.replace(/^# |^🔊 /,'').replace(/\d+$/,''))}}];if(!voice&&unread[id])entries.push({label:'Marcar como lida',run:()=>{unread[id]=0;drawChs();closeMenu()}});openMenu(x,y,entries);return}
+    if(msg){const entries=[{label:'Copiar texto',run:()=>{closeMenu();copy(msg.querySelector('.t')?.textContent||'')}},{label:'Responder',run:()=>{msg.querySelector('.act [aria-label="Responder"]')?.click();closeMenu()}},{label:'Reagir com 🁍',run:()=>{msg.querySelector('.act [aria-label="Reagir"]')?.click();closeMenu()}}];if(msg.dataset.author===myId){entries.push('-', {label:'Editar mensagem',run:()=>{msg.querySelector('.act [aria-label="Editar"]')?.click();closeMenu()}},{label:'Excluir mensagem',run:()=>{msg.querySelector('.act [aria-label="Excluir"]')?.click();closeMenu()}})}openMenu(x,y,entries);return}
+    const ch=target.closest('.ch');if(ch){const id=ch.dataset.channelId,voice=ch.dataset.channelType==='v';const entries=[{label:voice?(myVc===id?'Sair da sala':'Entrar na sala'):'Abrir canal',run:()=>{closeMenu();if(voice&&myVc&&myVc!==id)stopMusic();voice?joinVc(id):openCh(id)}},{label:'Copiar nome do canal',run:()=>{closeMenu();copy(ch.textContent.replace(/^# |^🄊 /,'').replace(/\d+$/,''))}}];if(!voice&&unread[id])entries.push({label:'Marcar como lida',run:()=>{unread[id]=0;drawChs();closeMenu()}});openMenu(x,y,entries);return}
     const video=target.closest('.tile.vid');if(video){const uid=video.dataset.uid,entries=[];if(uid)addUserActions(entries,uid,video);entries.push({label:'Tela cheia',run:()=>{closeMenu();video.requestFullscreen?.().catch(()=>toast('Tela cheia não está disponível.'))}});openMenu(x,y,entries)}
   }
   document.addEventListener('contextmenu',e=>{const target=e.target.closest('.mm,.vm,.tile,.m,.ch');if(!target)return;e.preventDefault();showContext(target,e.clientX,e.clientY)});

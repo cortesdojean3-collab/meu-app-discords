@@ -1,5 +1,6 @@
 const { app, BrowserWindow, session, desktopCapturer, Menu, shell, ipcMain } = require('electron');
 const path = require('path'), fs = require('fs');
+const { autoUpdater } = require('electron-updater');
 const store = () => path.join(app.getPath('userData'), 'server.json');
 function getBase() {
   const arg = process.argv.find(a => a.startsWith('--server='));
@@ -9,6 +10,27 @@ function getBase() {
   return /^https?:\/\/(?!COLOQUE)/.test(c) ? c.replace(/\/$/, '') : '';
 }
 let base = getBase(), win;
+let updateState = { state: 'checking' };
+function trustedAppFrame(event) { try { return !!base && new URL(event.senderFrame.url).origin === new URL(base).origin } catch { return false } }
+function publishUpdateState(state, info = {}) { updateState = { state, ...info }; if (win && !win.isDestroyed()) win.webContents.send('papo:update-state', updateState) }
+async function checkForUpdate() {
+  if (!app.isPackaged) { publishUpdateState('unsupported'); return }
+  publishUpdateState('checking');
+  try { await autoUpdater.checkForUpdates() }
+  catch (error) { publishUpdateState('error', { message: String(error?.message || 'Falha ao verificar').slice(0, 240) }) }
+}
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.on('checking-for-update', () => publishUpdateState('checking'));
+autoUpdater.on('update-available', info => publishUpdateState('available', { version: info.version }));
+autoUpdater.on('update-not-available', info => publishUpdateState('notAvailable', { version: info.version }));
+autoUpdater.on('download-progress', info => publishUpdateState('downloading', { percent: info.percent, transferred: info.transferred, total: info.total }));
+autoUpdater.on('update-downloaded', info => publishUpdateState('downloaded', { version: info.version }));
+autoUpdater.on('error', error => publishUpdateState('error', { message: String(error?.message || 'Falha no atualizador').slice(0, 240) }));
+ipcMain.handle('papo:app-version', event => trustedAppFrame(event) ? app.getVersion() : null);
+ipcMain.handle('papo:update-state', event => trustedAppFrame(event) ? updateState : { state: 'unsupported' });
+ipcMain.handle('papo:update-check', event => { if (!trustedAppFrame(event)) return false; checkForUpdate(); return true });
+ipcMain.handle('papo:update-install', event => { if (!trustedAppFrame(event) || updateState.state !== 'downloaded') return false; autoUpdater.quitAndInstall(); return true });
 try { if (base) app.commandLine.appendSwitch('unsafely-treat-insecure-origin-as-secure', new URL(base).origin); } catch (e) {}
 const setup = () => win.loadFile(path.join(__dirname, 'setup.html'));
 const open = () => base ? win.loadURL(base + '/app?desktop=1') : setup();
@@ -40,5 +62,6 @@ app.whenReady().then(() => {
     pend = { src, finish }; pw.on('closed', () => finish(null)); pw.loadFile(path.join(__dirname, 'picker.html'));
   });
   create();
+  if (app.isPackaged) { setTimeout(checkForUpdate, 15000); setInterval(checkForUpdate, 12 * 60 * 60 * 1000).unref(); }
 });
 app.on('window-all-closed', () => app.quit());

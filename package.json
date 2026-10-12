@@ -6,11 +6,13 @@
   "scripts": {
     "start": "node server.js",
     "desktop": "electron .",
-    "dist": "electron-builder --publish never"
+    "dist": "electron-builder --publish never",
+    "test": "node --test"
   },
   "dependencies": {
     "ws": "^8.18.0",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "electron-updater": "^6.8.10"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -25,7 +27,6 @@
       "buildResources": "build"
     },
     "files": [
-      "!node_modules/**",
       "main.js",
       "preload.js",
       "picker-preload.js",
@@ -34,6 +35,14 @@
       "config.json",
       "build/icon.png",
       "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "cortesdojean3-collab",
+        "repo": "meu-app-discords",
+        "releaseType": "draft"
+      }
     ],
     "win": {
       "target": "nsis",
