@@ -223,7 +223,7 @@ const findMsg = (c, id) => (data.msgs[c] || []).find(m => m.id === id);
 wss.on('connection', ws => {
   ws.isAlive = true; ws.on('pong', () => ws.isAlive = true); ws.on('error', () => {});
   C.forEach(o => { if (o.uid === ws.uid) { try { o.ws.send('{"t":"replaced"}'); o.ws.close(4002); } catch (e) {} } }); // uma conexao por usuario
-  const c = { ws, uid: ws.uid, sh: ws.sh, peer: crypto.randomBytes(5).toString('hex'), pres: cleanPres({}, ws.uid), ok: true, n: 0, t0: Date.now() };
+  const c = { ws, uid: ws.uid, sh: ws.sh, peer: crypto.randomBytes(5).toString('hex'), pres: cleanPres({}, ws.uid), ok: true, n: 0, t0: Date.now(), giftAt: 0 };
   C.set(c.peer, c); ws.send(JSON.stringify({ t: 'welcome', peer: c.peer })); peers();
   ws.on('message', raw => {
     if (c.blocked) return;
@@ -237,6 +237,14 @@ function handle(c, ws, m) {
   const chan = /^msgs-(geral|jogos|memes)$/;
   if (m.t === 'pres') { c.pres = cleanPres(m.p, c.uid); peers(); }
   else if (m.t === 'emit') { const d = m.data && C.get(m.data.to); if (m.topic === 'sig' && d && c.pres.vc && d.pres.vc === c.pres.vc) d.ws.send(JSON.stringify({ t: 'emit', topic: 'sig', data: m.data, peer: c.peer })); }
+  else if (m.t === 'gift') {
+    const target = String(m.to || '');
+    if (!c.pres.vc || target === c.uid || Date.now() - c.giftAt < 1000) return;
+    if (![...C.values()].some(x => x.uid === target && x.pres.vc === c.pres.vc)) return;
+    c.giftAt = Date.now();
+    const event = JSON.stringify({ t: 'gift', from: c.uid, to: target, id: crypto.randomBytes(8).toString('hex'), at: Date.now() });
+    C.forEach(x => { if (x.ok && x.pres.vc === c.pres.vc && x.ws.readyState === 1) x.ws.send(event); });
+  }
   else if (m.t === 'sub') { ws.send(JSON.stringify({ t: 'hist', c: m.c, items: m.c === 'profiles' ? Object.entries(data.profiles).map(([id, d]) => ({ id, d })) : chan.test(m.c) ? (data.msgs[m.c] || []).slice(-100) : [] })); }
   else if (m.t === 'add' && chan.test(m.c) && m.d && typeof m.d.text === 'string' && m.d.text.trim()) {
     const cid = String(m.d.cid || ''), rs = recent.get(c.uid) || recent.set(c.uid, new Set()).get(c.uid);
@@ -258,7 +266,7 @@ function handle(c, ws, m) {
     const s = JSON.stringify({ t: 'typing', c: m.c, uid: c.uid }); C.forEach(o => o !== c && o.ws.readyState === 1 && o.ws.send(s));
   } else if (m.t === 'set' && m.c === 'profiles') {
     const d = m.d || {}, av = String(d.avatar || '');
-    const p = { name: String(d.name || 'Sem nome').trim().slice(0, 24) || 'Sem nome', status: String(d.status || '').slice(0, 60), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#7c3aed',
+    const p = { name: String(d.name || 'Sem nome').trim().slice(0, 24) || 'Sem nome', status: String(d.status || '').slice(0, 60), bio: String(d.bio || '').trim().slice(0, 160), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#7c3aed',
       avatar: /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(av) && av.length < 60000 ? av : '' };
     data.profiles[c.uid] = p; save(); bc({ t: 'doc', c: 'profiles', id: c.uid, d: p });
   }

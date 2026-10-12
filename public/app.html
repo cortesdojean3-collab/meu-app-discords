@@ -148,7 +148,7 @@ const vcMembers=id=>room.peers().filter(p=>p.presence&&p.presence.vc===id);
 const SC={online:'#22c55e',away:'#f59e0b',busy:'#ef4444'};
 function drawChs(){const c=$('#chs');c.textContent='';
  [['Canais de texto','t'],['Canais de voz','v']].forEach(([l,t])=>{const h=document.createElement('div');h.className='cat';h.textContent=l;c.append(h);
-  CH.filter(x=>x.t===t).forEach(x=>{const e=document.createElement('div');e.className='ch'+(cur===x.id?' on':'');e.textContent=(t==='t'?'# ':'🔊 ')+x.n;
+  CH.filter(x=>x.t===t).forEach(x=>{const e=document.createElement('div');e.className='ch'+(cur===x.id?' on':'');e.dataset.channelId=x.id;e.dataset.channelType=t;e.textContent=(t==='t'?'# ':'🔊 ')+x.n;
    if(t==='t'&&unread[x.id]){const b=document.createElement('span');b.className='bd';b.textContent=unread[x.id]>99?'99+':unread[x.id];e.append(b)}
    e.tabIndex=0;e.onclick=()=>x.t==='v'?joinVc(x.id):openCh(x.id);e.onkeydown=ev=>{if(ev.key==='Enter')e.onclick()};c.append(e);
    if(t==='v')vcMembers(x.id).forEach(p=>{const m=document.createElement('div');m.className='vm';m.dataset.p=p.peer;const n=document.createElement('span');n.textContent=pr(p.presence.id).name+(p.presence.sh?' 🖥️':'')+(p.presence.cam?' 📷':'');const i=document.createElement('span');i.className='ic2';i.innerHTML=stIcon(p.presence);m.append(avEl(pr(p.presence.id),'s'),n,i);c.append(m)})})});
@@ -169,7 +169,7 @@ function renderMsgs(s){const box=$('#msgs'),stick=box.dataset.new||box.scrollHei
   const act=document.createElement('div');act.className='act';const A=(l,tt,fn)=>{const bt=document.createElement('button');bt.textContent=l;bt.title=tt;bt.setAttribute('aria-label',tt);bt.onclick=fn;act.append(bt)};
   A('↩','Responder',()=>{replyTo=d.id;drawReply(x);$('#cin').focus()});['👍','❤️','😂','🎉'].forEach(e=>A(e,'Reagir',()=>send({t:'react',c:'msgs-'+cur,id:d.id,e})));
   if(x.by===myId){A('✏️','Editar',()=>{const v=prompt('Editar mensagem',x.text);if(v&&v.trim()&&v!==x.text)send({t:'edit',c:'msgs-'+cur,id:d.id,text:v.trim()})});A('🗑️','Excluir',()=>{if(confirm('Excluir esta mensagem?'))send({t:'del',c:'msgs-'+cur,id:d.id})})}
-  r.append(avEl(p),b,act);box.append(r)});if(stick){box.scrollTop=box.scrollHeight;delete box.dataset.new}}
+  r.dataset.messageId=d.id;r.dataset.author=x.by;r.dataset.text=x.text;r.append(avEl(p),b,act);box.append(r)});if(stick){box.scrollTop=box.scrollHeight;delete box.dataset.new}}
 function openCh(id){cur=id;unread[id]=0;replyTo=null;drawReply();const c=CH.find(x=>x.id===id),v=c.t==='v';
  $('#ttl').textContent=(v?'🔊 ':'# ')+c.n;$('#msgs').style.display=v?'none':'block';$('#cform').style.display=v?'none':'block';$('#stage').style.display=v?'flex':'none';$('#srch').style.display=v?'none':'block';$('#bleave').style.display=myVc?'block':'none';drawChs();
  if(unsub){unsub();unsub=null}
@@ -270,9 +270,9 @@ setInterval(()=>Object.values(pcs).forEach(async c=>{try{const st=await c.pc.get
  const d1=lost-(c.l0||0),d2=rec-(c.r0||0);c.l0=lost;c.r0=rec;const loss=d1+d2>0?d1/(d1+d2):0,qq=c.pc.connectionState==='failed'||rtt>.4||loss>.08?'bad':rtt>.2||loss>.03?'mid':'good';if(qq!==c.q){c.q=qq;renderStage()}}catch(e){}}),3000);
 function tile(key,parent,make){let e=els.get(key);if(!e){e=make();els.set(key,e)}e.dataset.live='1';if(e.parentNode!==parent)parent.append(e);return e}
 function ctl(l,t,fn,cls){const b=document.createElement('button');b.className='tc '+(cls||'');b.textContent=l;b.title=t;b.setAttribute('aria-label',t);b.onclick=e=>{e.stopPropagation();fn(b)};return b}
-function userTile(p,mine){const d=document.createElement('div');d.className='tile';const l=document.createElement('span');l.className='lb';l.innerHTML='<i class="qd"></i><span class="nm"></span><span class="ic2"></span>';d.append(avEl({}),l);
+function userTile(p,mine){const d=document.createElement('div');d.className='tile';d.dataset.userTile='1';d.dataset.uid=p.presence.id;d.dataset.peer=p.peer;const l=document.createElement('span');l.className='lb';l.innerHTML='<i class="qd"></i><span class="nm"></span><span class="ic2"></span>';d.append(avEl({}),l);
  if(mine)l.querySelector('.qd').remove();else{const vp=volPanel('voice',p.presence.id);d.append(ctl('🔊','Volume desta pessoa',()=>vp.classList.toggle('open'),'vb'),vp)}return d}
-function vtile(stream,loc,uid){return()=>{const d=document.createElement('div');d.className='tile vid';d.tabIndex=0;const v=document.createElement('video');v.autoplay=v.muted=true;v.playsInline=true;if(loc)v.className='loc';v.srcObject=stream;const l=document.createElement('span');l.className='lb';l.innerHTML='<span class="nm"></span>';d.append(v,l);
+function vtile(stream,loc,uid){return()=>{const d=document.createElement('div');d.className='tile vid';d.dataset.videoTile='1';d.dataset.uid=uid||'';d.tabIndex=0;const v=document.createElement('video');v.autoplay=v.muted=true;v.playsInline=true;if(loc)v.className='loc';v.srcObject=stream;const l=document.createElement('span');l.className='lb';l.innerHTML='<span class="nm"></span>';d.append(v,l);
  const key=()=>[...els].find(([,e])=>e===d)[0],bar=document.createElement('div');bar.className='tbar';
  bar.append(ctl('🔍','Destacar / voltar à grade',()=>{const k=key();focusKey=focusKey===k?null:k;renderStage()}),ctl('👥','Mostrar ou ocultar participantes',()=>{hidePeople=!hidePeople;renderStage()}),
   ctl('⛶','Tela cheia',()=>{if(document.fullscreenElement)document.exitFullscreen();else(d.requestFullscreen?d.requestFullscreen():Promise.reject()).catch(()=>ban('Seu navegador não permitiu tela cheia.'))}),ctl('✕ Sair da tela cheia','Sair da tela cheia',()=>document.exitFullscreen(),'x'));
@@ -343,4 +343,4 @@ db.collection('profiles').onSnapshot(s=>{P={};s.docs.forEach(d=>P[d.id]=d.data()
 drawChs();drawMe();openCh('geral');applyLook();setOut();status('wait');
 fetch('/ice').then(r=>r.json()).then(j=>{ICE={iceServers:j}}).catch(()=>{}).finally(()=>location.protocol==='file:'?ban('Abra o app pelo endereço do seu site (https://...), não pelo arquivo.'):connect());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
-</script></body></html>
+</script><script src="/papo-enhancements.js" defer></script></body></html>
