@@ -7,7 +7,7 @@ const configuredRepo = process.env.GITHUB_REPO || DEFAULT_REPO;
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(configuredRepo) ? configuredRepo : DEFAULT_REPO;
 const DB = process.env.DATA_FILE || path.join(__dirname, 'data.json'), START = Date.now();
 const APP_VERSION = require('./package.json').version;
-const BUILD_FILES=['server.js','storage.js','migrations/001_persistent_data.sql','main.js','screen-share-selection.js','preload.js','picker-preload.js','picker.html','package.json','public/index.html','public/app.html','public/papo-enhancements.js','public/papo-intro.css','public/papo-intro.js','public/papo-motor.wav','public/kombi.svg','public/sw.js','public/downloads.html'];
+const BUILD_FILES=['server.js','storage.js','migrations/001_persistent_data.sql','migrations/import-legacy.js','main.js','screen-share-selection.js','preload.js','picker-preload.js','picker.html','package.json','public/index.html','public/app.html','public/papo-enhancements.js','public/papo-intro.css','public/papo-intro.js','public/papo-motor.wav','public/kombi.svg','public/sw.js','public/downloads.html','public/papo-ui.css','public/kombi-cursor.svg','public/kombi-cursor-medium.svg','public/papo-surprises.js','public/papo-surprises.css','public/papo-garden.svg','public/kombi-flowers.svg'];
 function localBuildId(){const hash=crypto.createHash('sha256');for(const file of BUILD_FILES)hash.update(file).update('\0').update(fs.readFileSync(path.join(__dirname,file)));return hash.digest('hex').slice(0,12)}
 const BUILD_ID=process.env.RENDER_GIT_COMMIT||process.env.GITHUB_SHA||localBuildId();
 const FILES = { win: 'Papo-win.exe', mac: 'Papo-mac.dmg', linux: 'Papo-linux.AppImage' };
@@ -18,7 +18,7 @@ const TEMP = /ECONNRESET|EPIPE|ETIMEDOUT|ERR_STREAM|socket hang up|ECONNABORTED/
 process.on('uncaughtException', e => { if (TEMP.test((e.code || '') + e.message)) return log('warn', 'proc', 'erro de rede ignorado', { m: e.message }); log('error', 'proc', 'erro fatal', { m: e.message, s: (e.stack || '').split('\n')[1] }); shutdown('fatal', 1); });
 process.on('unhandledRejection', e => log('error', 'proc', 'promise rejeitada', { m: String((e && e.message) || e) }));
 /* ---------- persistência: Postgres relacional ou arquivo local ---------- */
-const storage = createStorage({ databaseUrl: process.env.DATABASE_URL, dataFile: DB });
+const storage = createStorage({ databaseUrl: process.env.DATABASE_URL, dataFile: DB, legacyDataFile: process.env.LEGACY_DATA_FILE });
 let data = {}, tm, flushing = false, again = false;
 async function load() {
   data = await storage.load();
@@ -36,21 +36,33 @@ const flushAll = async () => { clearTimeout(tm); while (flushing) await new Prom
 /* ---------- sessoes (cookie HttpOnly) e contas ---------- */
 const json = (res, code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
 const sh = s => crypto.createHash('sha256').update(String(s)).digest('hex');
-const scrypt = (p, s) => new Promise((ok, no) => crypto.scrypt(p, s, 64, (e, k) => e ? no(e) : ok(k.toString('hex'))));
+const PASSWORD_PREFIX = 'scrypt$65536$8$2$';
+const scrypt = (p, s, legacy = false) => new Promise((ok, no) => crypto.scrypt(p, s, 64, legacy ? {} : { N:65536,r:8,p:2,maxmem:96*1024*1024 }, (e, k) => e ? no(e) : ok(k.toString('hex'))));
+const passwordHash = async (p, s) => PASSWORD_PREFIX + await scrypt(p, s);
+async function passwordMatches(pass, user) {
+  const encoded = typeof user?.hash === 'string' ? user.hash : '';
+  const legacy = /^[a-f0-9]{128}$/i.test(encoded);
+  const expected = legacy ? encoded : encoded.startsWith(PASSWORD_PREFIX) ? encoded.slice(PASSWORD_PREFIX.length) : '';
+  const actual = await scrypt(pass, typeof user?.salt === 'string' ? user.salt : 'x'.repeat(32), legacy);
+  return !!user && /^[a-f0-9]{128}$/i.test(expected) && crypto.timingSafeEqual(Buffer.from(actual,'hex'),Buffer.from(expected,'hex'));
+}
 const cookie = (req, n) => { const m = (req.headers.cookie || '').split(/;\s*/).find(x => x.startsWith(n + '=')); return m ? m.slice(n.length + 1) : ''; };
 const secure = req => req.headers['x-forwarded-proto'] === 'https' || !!req.socket.encrypted;
 function setCookie(req, res, sid, remember, clear) {
   res.setHeader('Set-Cookie', `papo_sid=${clear ? '' : sid}; Path=/; HttpOnly; SameSite=Lax${secure(req) ? '; Secure' : ''}${clear ? '; Max-Age=0' : remember ? '; Max-Age=' + TTL_LONG / 1000 : ''}`);
 }
-function sess(req) {
-  const k = sh(cookie(req, 'papo_sid')), s = data.sessions[k];
+async function sess(req) {
+  const token = cookie(req, 'papo_sid');
+  if (!token) return null;
+  const k = sh(token), s = storage.persistent ? await storage.readSession(k) : data.sessions[k];
+  if (storage.persistent) { if (s) data.sessions[k] = s; else delete data.sessions[k]; }
   if (!s) return null;
-  if (s.exp < Date.now()) { delete data.sessions[k]; save(); return null; }
+  if (s.exp < Date.now()) { if(storage.persistent)await storage.revokeSession(k);delete data.sessions[k];if(!storage.persistent)save();return null; }
   return Object.assign({ k }, s);
 }
-function renew(req, res, s) {
+async function renew(req, res, s) {
   const ttl = s.remember ? TTL_LONG : TTL_SHORT;
-  if (s.exp - Date.now() < ttl / 2) { data.sessions[s.k].exp = Date.now() + ttl; save(); if (res) setCookie(req, res, cookie(req, 'papo_sid'), s.remember); }
+  if (s.exp - Date.now() < ttl / 2) { const previous=data.sessions[s.k].exp;data.sessions[s.k].exp=Date.now()+ttl;try{await flushAll()}catch(error){data.sessions[s.k].exp=previous;throw error}if(res)setCookie(req,res,cookie(req,'papo_sid'),s.remember); }
 }
 setInterval(() => { const n = Date.now(); let c = 0; for (const k in data.sessions) if (data.sessions[k].exp < n) { delete data.sessions[k]; c++; } if (c) save(); }, 36e5).unref();
 const sameOrigin = req => { const o = req.headers.origin; if (!o) return true; try { return new URL(o).host === req.headers.host; } catch (e) { return false; } };
@@ -75,37 +87,40 @@ async function auth(req, res, reg) {
     if (!/^[a-zA-Z0-9_.-]{3,20}$/.test(name)) return json(res, 400, { erro: 'Usuário: 3 a 20 letras, números, _ . -' });
     if (pass.length < 6 || pass.length > 100) return json(res, 400, { erro: 'A senha precisa ter de 6 a 100 caracteres.' });
     if (INVITE && b.invite !== INVITE) return json(res, 403, { erro: 'Código de convite incorreto.' });
-    if (data.users[key] || inflight.has(key)) return json(res, 409, { erro: 'Esse usuário já existe.' });
+    if ((storage.persistent ? await storage.readUser(key) : data.users[key]) || inflight.has(key)) return json(res, 409, { erro: 'Esse usuário já existe.' });
     inflight.add(key);
     try {
-      const salt = crypto.randomBytes(16).toString('hex'), h = await scrypt(pass, salt);
+      const salt = crypto.randomBytes(16).toString('hex'), h = await passwordHash(pass, salt);
       if (data.users[key]) return json(res, 409, { erro: 'Esse usuário já existe.' });
       const uid = crypto.randomUUID();
       data.users[key] = { uid, salt, hash: h, name, createdAt: Date.now() };
       data.profiles[uid] = { name, status: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], avatar: '' };
       try { await flushAll(); } catch (error) { delete data.users[key]; delete data.profiles[uid]; return json(res, 503, { erro: 'Não foi possível salvar sua conta. Verifique a conexão e tente novamente.' }); }
       bc({ t: 'doc', c: 'profiles', id: uid, d: data.profiles[uid] });
-      await newSession(req, res, uid, !!b.remember); log('info', 'auth', 'conta criada', { uid });
+      try { await newSession(req,res,uid,!!b.remember); } catch(error) { return json(res,503,{erro:'A conta foi salva, mas não foi possível abrir a sessão. Tente entrar novamente.'}); } log('info', 'auth', 'conta criada', { uid });
       return json(res, 200, { uid, name });
     } finally { inflight.delete(key); }
   }
-  const u = data.users[key], h = await scrypt(pass, u ? u.salt : 'x'.repeat(32));
-  if (!u || !crypto.timingSafeEqual(Buffer.from(h), Buffer.from(u.hash))) return json(res, 401, { erro: 'Usuário ou senha incorretos.' });
-  await newSession(req, res, u.uid, !!b.remember); json(res, 200, { uid: u.uid, name: u.name });
+  if (pass.length > 100) return json(res,400,{erro:'A senha excedeu o limite de 100 caracteres.'});
+  const u = storage.persistent ? await storage.readUser(key) : data.users[key];
+  if (!await passwordMatches(pass,u)) return json(res, 401, { erro: 'Usuário ou senha incorretos.' });
+  data.users[key]=u;
+  if (!u.hash.startsWith(PASSWORD_PREFIX)) { const previous=u.hash;u.hash=await passwordHash(pass,u.salt);try{await flushAll()}catch(error){u.hash=previous;return json(res,503,{erro:'Não foi possível atualizar a proteção da conta. Tente novamente.'})} }
+  try { await newSession(req,res,u.uid,!!b.remember); } catch(error) { return json(res,503,{erro:'Não foi possível salvar a sessão. Tente novamente.'}); } json(res, 200, { uid: u.uid, name: u.name });
 }
-async function dropSessions(uid, keep) { const removed=[]; for (const k in data.sessions) if (data.sessions[k].uid === uid && k !== keep) { removed.push([k,data.sessions[k]]); delete data.sessions[k]; } try { await flushAll(); } catch (error) { removed.forEach(([k,v]) => data.sessions[k]=v); throw error; } C.forEach(c => { if (c.uid === uid && c.sh !== keep) { try { c.ws.close(4001); } catch (e) {} } }); }
+async function dropSessions(uid, keep) { if(storage.persistent)await storage.revokeOtherSessions(uid,keep);const removed=[];for(const k in data.sessions)if(data.sessions[k].uid===uid&&k!==keep){removed.push([k,data.sessions[k]]);delete data.sessions[k]}if(!storage.persistent)try{await flushAll()}catch(error){removed.forEach(([k,v])=>data.sessions[k]=v);throw error}C.forEach(c=>{if(c.uid===uid&&c.sh!==keep)try{c.ws.close(4001)}catch{}}); }
 async function api(req, res, u) {
   if (req.method === 'POST' && !sameOrigin(req)) return json(res, 403, { erro: 'Origem não permitida.' });
   if (u === '/api/login' || u === '/api/register') return req.method === 'POST' ? auth(req, res, u === '/api/register') : json(res, 405, {});
-  const s = sess(req);
-  if (u === '/api/me') { if (!s) return json(res, 401, { erro: 'Sessão expirada.' }); renew(req, res, s); return json(res, 200, { uid: s.uid }); }
+  const s = await sess(req);
+  if (u === '/api/me') { if (!s) return json(res, 401, { erro: 'Sessão expirada.' }); await renew(req, res, s); return json(res, 200, { uid: s.uid }); }
   if (!s) return json(res, 401, { erro: 'Sessão expirada.' });
-  if (u === '/api/logout' && req.method === 'POST') { const session=data.sessions[s.k]; delete data.sessions[s.k]; try { await flushAll(); } catch (error) { data.sessions[s.k]=session; return json(res,503,{erro:'Não foi possível encerrar a sessão. Tente novamente.'}); } C.forEach(c => { if (c.sh === s.k) try { c.ws.close(4001); } catch (e) {} }); setCookie(req, res, '', false, true); return json(res, 200, {}); }
-  if (u === '/api/sessions') return json(res, 200, Object.entries(data.sessions).filter(([, v]) => v.uid === s.uid).map(([k, v]) => ({ ua: v.ua || 'Dispositivo', ts: v.ts, current: k === s.k })));
+  if (u === '/api/logout' && req.method === 'POST') { const session=data.sessions[s.k];delete data.sessions[s.k];try{if(storage.persistent)await storage.revokeSession(s.k);else await flushAll()}catch(error){data.sessions[s.k]=session;return json(res,503,{erro:'Não foi possível encerrar a sessão. Tente novamente.'})}C.forEach(c=>{if(c.sh===s.k)try{c.ws.close(4001)}catch{}});setCookie(req,res,'',false,true);return json(res,200,{}); }
+  if (u === '/api/sessions') { const sessions=storage.persistent?await storage.listSessions(s.uid):Object.entries(data.sessions).filter(([,v])=>v.uid===s.uid&&v.exp>Date.now());return json(res,200,sessions.map(([k,v])=>({ua:v.ua||'Dispositivo',ts:v.ts,current:k===s.k}))); }
   if (u === '/api/sessions/revoke-others' && req.method === 'POST') { try { await dropSessions(s.uid, s.k); return json(res, 200, {}); } catch (error) { return json(res,503,{erro:'Não foi possível encerrar as outras sessões. Tente novamente.'}); } }
   if (u === '/api/delete' && req.method === 'POST') {
     const b = await readJson(req), me = Object.entries(data.users).find(([, v]) => v.uid === s.uid);
-    if (!me || !crypto.timingSafeEqual(Buffer.from(await scrypt(String(b.pass || ''), me[1].salt)), Buffer.from(me[1].hash))) return json(res, 401, { erro: 'Senha incorreta.' });
+    if (!me || !await passwordMatches(String(b.pass || ''),me[1])) return json(res, 401, { erro: 'Senha incorreta.' });
     const before=data; data=JSON.parse(JSON.stringify(data));
     delete data.users[me[0]]; delete data.profiles[s.uid];
     for (const c in data.msgs) data.msgs[c] = data.msgs[c].filter(m => m.d.by !== s.uid);
@@ -142,12 +157,12 @@ function latestRelease() {
   });
   return releaseCache.pending;
 }
-function iceConfig(req,res){
+async function iceConfig(req,res){
   res.setHeader('Cache-Control','private, no-store');
-  const servers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],s=sess(req);
+  const servers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],s=await sess(req);
   const urls=(process.env.TURN_URLS||'').split(',').map(x=>x.trim()).filter(x=>/^turns?:[^\s,]+$/i.test(x));
   const secret=process.env.TURN_SECRET||'';
-  if(s){renew(req,res,s);if(urls.length&&secret){const username=`${Math.floor(Date.now()/1000)+3600}:${s.uid}`;const credential=crypto.createHmac('sha1',secret).update(username).digest('base64');servers.push({urls,username,credential})}}
+  if(s){await renew(req,res,s);if(urls.length&&secret){const username=`${Math.floor(Date.now()/1000)+3600}:${s.uid}`;const credential=crypto.createHmac('sha1',secret).update(username).digest('base64');servers.push({urls,username,credential})}}
   return json(res,200,servers);
 }
 let historyCache = { at: 0, value: null, pending: null };
@@ -204,7 +219,7 @@ const srv = http.createServer(async (req, res) => {
     if (u === '/') return serve(res, path.join(__dirname, 'public/index.html'));
     if (u === '/app') return serveApp(res, path.join(__dirname, 'public/app.html'));
     if (u === '/downloads' || u === '/downloads/') return serve(res, path.join(__dirname, 'public/downloads.html'));
-    if (u === '/ice') { if(!sameOrigin(req))return json(res,403,{erro:'Origem não permitida.'}); return iceConfig(req,res); }
+    if (u === '/ice') { if(!sameOrigin(req))return json(res,403,{erro:'Origem não permitida.'}); return await iceConfig(req,res); }
     if (u.startsWith('/downloads/')) {
       const n = path.basename(u);
       if (local(n)) return serve(res, path.join(__dirname, 'downloads', n));
@@ -222,16 +237,15 @@ const srv = http.createServer(async (req, res) => {
 srv.keepAliveTimeout = 120000; srv.headersTimeout = 125000; srv.requestTimeout = 0;
 /* ---------- websocket ---------- */
 const wss = new WebSocketServer({ noServer: true, maxPayload: 262144 }), C = new Map(), recent = new Map(), pendingMessages = new Map(), lastTyping = new Map();
-srv.on('upgrade', (req, sock, head) => {
+srv.on('upgrade', async (req, sock, head) => {
   sock.on('error', () => {});
-  const s = req.url.split('?')[0] === '/ws' && sameOrigin(req) ? sess(req) : null;
+  let s;try{s=req.url.split('?')[0]==='/ws'&&sameOrigin(req)?await sess(req):null;if(s)await renew(req,null,s)}catch(error){sock.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');return sock.destroy()}
   if (!s) { sock.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n'); return sock.destroy(); }
-  renew(req, null, s);
   wss.handleUpgrade(req, sock, head, ws => { ws.uid = s.uid; ws.sh = s.k; wss.emit('connection', ws, req); });
 });
 const bc = o => { const s = JSON.stringify(o); C.forEach(c => c.ok && c.ws.readyState === 1 && c.ws.send(s)); };
 const peers = () => bc({ t: 'peers', list: [...C.values()].filter(c => c.ok).map(c => ({ peer: c.peer, presence: c.pres })) });
-const cleanPres = (p, uid) => { p = p || {}; return { id: uid, vc: VC.includes(p.vc) ? p.vc : null, sh: !!p.sh, cam: !!p.cam, dn: !!p.dn, mic: ['on', 'muted', 'noperm'].includes(p.mic) ? p.mic : 'on', st: ['online', 'away', 'busy'].includes(p.st) ? p.st : 'online', shid: String(p.shid || '').slice(0, 64), cmid: String(p.cmid || '').slice(0, 64) }; };
+const cleanPres = (p, uid) => { p = p || {}; return { id: uid, vc: VC.includes(p.vc) ? p.vc : null, sh: !!p.sh, cam: !!p.cam, dn: !!p.dn, mic: ['on', 'muted', 'noperm'].includes(p.mic) ? p.mic : 'on', st: ['online', 'away', 'busy', 'invisible'].includes(p.st) ? p.st : 'online', shid: String(p.shid || '').slice(0, 64), cmid: String(p.cmid || '').slice(0, 64) }; };
 const findMsg = (c, id) => (data.msgs[c] || []).find(m => m.id === id);
 wss.on('connection', ws => {
   ws.isAlive = true; ws.on('pong', () => ws.isAlive = true); ws.on('error', () => {});
@@ -246,7 +260,14 @@ wss.on('connection', ws => {
   });
   ws.on('close', () => { if (C.get(c.peer) === c) { C.delete(c.peer); peers(); } });
 });
+async function authorizeSocket(c, ws) {
+  if (!c.ok || ws.readyState !== 1) return false;
+  const session = storage.persistent ? await storage.readSession(c.sh) : data.sessions[c.sh];
+  if (!session || session.uid !== c.uid || session.exp <= Date.now()) { c.ok = false; ws.close(4001); return false; }
+  return true;
+}
 async function handle(c, ws, m) {
+  if (!await authorizeSocket(c, ws)) return;
   const ack=(ok,erro)=>{if(typeof m.rid==='string'&&m.rid.length<=80)ws.send(JSON.stringify({t:'ack',rid:m.rid,ok,...(erro?{erro}:{})}))};
   const chan = /^msgs-(geral|jogos|memes)$/;
   if (m.t === 'pres') { c.pres = cleanPres(m.p, c.uid); peers(); }
@@ -279,6 +300,7 @@ async function handle(c, ws, m) {
     const it = findMsg(m.c, String(m.id)); if (!it) return; const re = it.d.re = it.d.re || {}, a = re[m.e] = re[m.e] || [], i = a.indexOf(c.uid);
     const old=JSON.stringify(it.d); if (i < 0) { if (a.length < 50) a.push(c.uid); } else a.splice(i, 1); if (!a.length) delete re[m.e]; try { await flushAll(); } catch(e) { it.d=JSON.parse(old); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d }); ack(true);
   } else if (m.t === 'typing' && chan.test(m.c)) {
+    if (c.pres.st === 'invisible') return;
     const k = c.uid + m.c; if (Date.now() - (lastTyping.get(k) || 0) < 1500) return; lastTyping.set(k, Date.now());
     const s = JSON.stringify({ t: 'typing', c: m.c, uid: c.uid }); C.forEach(o => o !== c && o.ws.readyState === 1 && o.ws.send(s));
   } else if (m.t === 'set' && m.c === 'profiles') {
@@ -289,7 +311,7 @@ async function handle(c, ws, m) {
     if(m.rid) ws.send(JSON.stringify({t:'ack',rid:m.rid,ok:true}));
   }
 }
-setInterval(() => { wss.clients.forEach(w => { if (!w.isAlive) return w.terminate(); w.isAlive = false; try { w.ping(); } catch (e) {} }); if (lastTyping.size > 500) lastTyping.clear(); }, 25000).unref();
+setInterval(() => { wss.clients.forEach(w => { if (!w.isAlive) return w.terminate(); w.isAlive = false; try { w.ping(); } catch (e) {} }); C.forEach(c => { if (c.ok) authorizeSocket(c,c.ws).catch(() => { c.ok=false;c.ws.close(1013); }); }); if (lastTyping.size > 500) lastTyping.clear(); }, 25000).unref();
 srv.on('error', e => log('error', 'http', 'servidor', { m: e.message }));
 /* ---------- encerramento controlado ---------- */
 let closing = false;

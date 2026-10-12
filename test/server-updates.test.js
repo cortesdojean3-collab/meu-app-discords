@@ -68,7 +68,7 @@ before(async () => {
   const port = await freePort();
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'papo-server-test-'));
   base = `http://127.0.0.1:${port}`;
-  serverEnv = { ...process.env, PORT: String(port), DATA_FILE: path.join(tempDir, 'data.json'), TURN_URLS: 'turn:relay.example.invalid:3478?transport=udp', TURN_SECRET: turnSecret, INVITE_CODE: '' };
+  serverEnv = { ...process.env, NODE_ENV:'test',RENDER:'false',PORT: String(port), DATA_FILE: path.join(tempDir, 'data.json'), TURN_URLS: 'turn:relay.example.invalid:3478?transport=udp', TURN_SECRET: turnSecret, INVITE_CODE: '' };
   delete serverEnv.DATABASE_URL;
   child = spawn(process.execPath, ['server.js'], { cwd: root, env: serverEnv, stdio: process.env.PAPO_TEST_LOG ? 'inherit' : 'ignore' });
   let ready = false;

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="still" viewBox="0 0 320 175" role="img" aria-labelledby="title">
+  <title id="title">A mini Kombi do Papo entrega flores</title>
+  <defs>
+    <linearGradient id="white" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#e6ddee"/></linearGradient>
+    <linearGradient id="purple" x2="0" y2="1"><stop stop-color="#b78bd9"/><stop offset="1" stop-color="#7751a8"/></linearGradient>
+    <linearGradient id="glass" x2="1" y2="1"><stop stop-color="#c7d9e9"/><stop offset="1" stop-color="#546b8c"/></linearGradient>
+    <g id="flower"><path d="M0 0v19m0-6-7-5m7 8 6-5" fill="none" stroke="#78a983" stroke-width="2"/><path d="M0-5c-10 5-12-7-5-7-2-9 9-10 10-2 9-1 10 10 0 11Z" fill="currentColor" stroke="#fff0fb" stroke-width=".7"/><circle cy="-7" r="2.6" fill="#efda9d"/></g>
+    <style>.wheel-hub{transform-box:fill-box;transform-origin:center;animation:spin .65s linear infinite}.body{animation:balance 1s ease-in-out infinite}@keyframes spin{to{transform:rotate(360deg)}}@keyframes balance{50%{transform:translateY(-1px)}}svg:target *{animation:none!important}@media(prefers-reduced-motion:reduce){*{animation:none!important}}</style>
+  </defs>
+  <ellipse cx="161" cy="168" rx="131" ry="5" fill="#0e0918" opacity=".5"/>
+  <g class="body">
+    <g><path d="M65 31h20l-3 13H68Zm46 0h21l-3 13h-15Zm53 0h24l-3 13h-18Z" fill="#a084bd" stroke="#584266" stroke-width="1.5"/>
+      <use href="#flower" x="75" y="15" color="#dca1ce"/><use href="#flower" x="122" y="13" color="#c6a5eb"/><use href="#flower" x="171" y="17" color="#efe5f0"/><use href="#flower" x="185" y="21" color="#dbaddc" transform="rotate(13 185 30)"/>
+      <path d="M91 39v-9l-6-8m6 17 5-17m0 10 5-9M148 42l-4-15m4 10 7-15m-9 10-7-10" stroke="#76aa85" stroke-width="3" stroke-linecap="round"/></g>
+    <path d="M27 132V71c0-17 10-27 28-27h150c18 0 30 6 41 20l26 31 16 6c8 3 12 10 12 19v14c0 8-5 12-13 12h-27c-1-16-11-27-26-27s-25 11-27 27H107c-1-16-12-27-27-27s-26 11-28 27H42c-10 0-15-5-15-14Z" fill="url(#white)" stroke="#493255" stroke-width="3"/>
+    <path d="M29 108h269v26c0 7-4 10-11 10h-27c-2-15-12-26-26-26s-25 11-28 26h-99c-2-15-12-26-27-26s-26 11-29 26h-9c-9 0-13-4-13-12Z" fill="url(#purple)"/>
+    <path d="M45 63c0-5 3-7 8-7h34v37H43Zm52-7h45v37H97Zm55 0h49q5 0 10 5v32h-59Zm70 4q9 4 16 13l17 20h-33Z" fill="url(#glass)" stroke="#665071" stroke-width="2.5"/>
+    <path d="m62 58-16 32m75-32-17 32m74-32-18 32" stroke="#eff4ff" stroke-width="8" opacity=".18"/>
+    <path d="M31 105h250M215 101v41M146 101v41" stroke="#e5d2ed" stroke-width="1.5" opacity=".7"/>
+    <path d="M224 111h10M154 111h9" stroke="#f9f1ff" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M27 138h18m226 0h29" stroke="#ddd2e6" stroke-width="5" stroke-linecap="round"/>
+    <rect x="287" y="109" width="10" height="14" rx="5" fill="#fff0c1" stroke="#7d647f" stroke-width="2"/>
+    <rect x="26" y="111" width="5" height="13" rx="2" fill="#d6849d"/>
+    <path d="M257 91h6v12" stroke="#493255" stroke-width="2" fill="none"/><rect x="261" y="91" width="8" height="14" rx="3" fill="#d9d4e8" stroke="#493255" stroke-width="1.5"/>
+    <use href="#flower" x="118" y="117" color="#edc7e4" transform="translate(45 55) scale(.62)"/>
+    <use href="#flower" x="135" y="111" color="#e8daf8" transform="translate(45 55) scale(.62)"/>
+    <path d="M188 118c-6-5-10 3 0 9 10-6 6-14 0-9Z" fill="#eed2ef"/>
+    <path d="M35 116v16m4-16v16m4-16v16" stroke="#61457f" stroke-width="1.5"/>
+  </g>
+  <g fill="#211c2e" stroke="#9b839f" stroke-width="2"><circle cx="80" cy="146" r="21"/><circle cx="234" cy="146" r="21"/></g>
+  <g class="wheel-hub"><circle cx="80" cy="146" r="10.5" fill="#d5bfdc" stroke="#493255" stroke-width="2"/><path d="M80 138v16m-8-8h16m-14-6 12 12m0-12-12 12" stroke="#8b70a1" stroke-width="2"/><circle cx="80" cy="146" r="3" fill="#f7edfc"/></g>
+  <g class="wheel-hub"><circle cx="234" cy="146" r="10.5" fill="#d5bfdc" stroke="#493255" stroke-width="2"/><path d="M234 138v16m-8-8h16m-14-6 12 12m0-12-12 12" stroke="#8b70a1" stroke-width="2"/><circle cx="234" cy="146" r="3" fill="#f7edfc"/></g>
+</svg>

@@ -1,0 +1,137 @@
+:root {
+  --papo-accent-soft: #7c3aed24;
+  --papo-accent-border: #a78bfa55;
+}
+:root[data-papo-accent="lavender"] { --ac: #8063c8; --ac2: #c4b5fd; --papo-accent-soft: #a78bfa24; --papo-accent-border: #c4b5fd55; }
+:root[data-papo-accent="plum"] { --ac: #9853c7; --ac2: #d4a4f1; --papo-accent-soft: #b064d324; --papo-accent-border: #d4a4f155; }
+
+#app { position: relative; min-height: 0; overflow: hidden; }
+#rail { width: 72px; flex: none; padding: 20px 0; background: var(--bg0); }
+#papoLogoSecret { width: 52px; height: 52px; padding: 0; background: transparent; border-radius: 17px; }
+#papoLogoSecret img { width: 48px; height: 48px; }
+#side { width: 256px; min-width: 210px; flex: none; background: linear-gradient(180deg, #ffffff02, transparent 45%), var(--bg1); }
+#side h3 { min-height: 68px; padding: 18px 20px; font-size: 18px; letter-spacing: -.3px; border-bottom: 1px solid var(--bd); }
+#side h3 img { width: 28px; }
+#chs { padding: 8px 12px; }
+.cat { padding: 20px 10px 8px; font-size: 10px; letter-spacing: 1.35px; }
+.ch { min-height: 40px; padding: 9px 12px; gap: 10px; border: 1px solid transparent; border-radius: 12px; }
+.ch.on { background: linear-gradient(90deg, var(--papo-accent-soft), transparent); border-color: var(--papo-accent-border); box-shadow: inset 3px 0 0 var(--ac2); color: var(--tx); }
+.ch:hover { transform: none; background-color: var(--papo-accent-soft); }
+.vm { min-width: 0; padding: 6px 6px 6px 24px; gap: 7px; }
+.vm > span:not(.ic2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#me { margin: 10px 12px 14px; padding: 12px; gap: 10px; background: var(--bg0); border-radius: 16px; }
+#me .nm { min-width: 0; }
+#mename { font-size: 14px; line-height: 1.4; }
+#mest { padding-top: 2px; font-size: 11px; }
+#me-controls { padding-top: 9px; border-top: 1px solid var(--bd); gap: 8px; }
+#me-controls .ic.icon-only { width: 36px; height: 36px; color: var(--mu); }
+#me-controls .ic.icon-only:hover, #me-controls .ic[aria-pressed="true"] { color: var(--ac2); background: var(--papo-accent-soft); }
+
+#main { overflow: hidden; }
+#top { min-width: 0; flex: none; height: 64px; gap: 12px; padding: 0 24px; background: var(--bg1); }
+#ttl { min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -.2px; }
+#srch { width: min(210px, 25vw); min-width: 0; font-size: 12px; }
+#papoChannelToggle { display: none; }
+#papoSideClose { display: none; margin-left: auto; }
+#papoNavShade { display: none; }
+#mem { width: 222px; min-width: 180px; flex: none; padding: 12px; }
+#mem .cat { padding-top: 10px; }
+.mm { min-width: 0; padding: 9px 7px !important; gap: 9px !important; }
+.mm > div:not(.av) { min-width: 0; }
+.mm b, .mm small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm b { font-size: 13px; }
+.mm small { padding-top: 4px; font-size: 11px; }
+#msgs { padding: 24px; scroll-behavior: smooth; }
+.m { margin-bottom: 12px; gap: 12px; padding: 9px 10px; }
+.m .t { padding-top: 3px; line-height: 1.6; font-size: 14px; }
+.act { right: 5px; gap: 4px; padding: 4px; border-radius: 12px; box-shadow: 0 6px 22px #0005; }
+.act button { min-width: 30px; min-height: 30px; }
+#cform { flex: none; padding: 0 24px 20px; }
+#cin { min-height: 48px; border-radius: 15px; }
+#ban { line-height: 1.5; }
+#ban button { margin-left: 8px; font-size: 12px; }
+#grid { gap: 16px; padding: 20px; align-content: flex-start; }
+#ctl { width: min(940px, calc(100% - 32px)); min-width: 0; margin-bottom: 16px; border-radius: 20px; gap: 8px; padding: 10px; background: var(--bg2); }
+#ctl select { max-width: 100%; font-size: 12px; }
+#shareQuality { font-size: 11px; color: var(--mu); }
+#ctl .button-with-icon { min-height: 38px; padding: 8px 12px; font-size: 12px; }
+
+.modal { padding: 16px; background: #080610bd; backdrop-filter: blur(10px); }
+.box { width: min(440px, 100%); max-height: calc(100dvh - 32px); padding: 26px; border-radius: 22px; gap: 14px; box-shadow: 0 24px 80px #0008; }
+.box.wide { width: min(700px, 100%); }
+.box input, .box select, .box textarea { min-width: 0; max-width: 100%; }
+.box input[type="text"], .box input[type="password"], .box select, .box textarea { min-height: 42px; }
+.box h4 { margin: 16px 0 12px; font-size: 14px; }
+.pane { padding: 14px 2px 4px; }
+.pane label { margin-bottom: 16px; }
+.box label.cb { line-height: 1.45; align-items: flex-start; }
+.box label.cb input { flex: none; margin-top: 3px; accent-color: var(--ac); }
+input[type="range"] { accent-color: var(--ac2); }
+#tabs { flex: none; padding: 8px 0 12px; gap: 6px; overflow-y: hidden; }
+#m2 .box > div:first-child, #m2 .pane, #m2 #settingsSearch, #m2 #papoPreferencesSaved { flex: none; }
+#tabs button { min-height: 38px; font-size: 12px; }
+#tabs button.on { background: var(--ac); }
+#tabs button[hidden] { display: none; }
+#settingsSearch { margin-top: 4px; font-size: 13px; }
+#papoPreferencesSaved { min-height: 18px; margin: 2px 0 0; color: var(--ac2); font-size: 11px; }
+.papo-secret-heart { display: grid; place-items: center; width: 34px; height: 34px; margin: 16px 0 0 auto; background: transparent; color: #c8b1de; opacity: .65; }
+.papo-secret-heart:hover { opacity: 1; color: #e2beee; background: var(--papo-accent-soft); }
+.papo-secret-heart svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.papo-about { margin-top: 22px; padding-top: 8px; border-top: 1px solid var(--bd); }
+.papo-about p { max-width: 420px; font-size: 13px; line-height: 1.6; color: var(--mu); }
+.papo-about .lnk { padding: 7px 0; font-size: 12px; }
+.papo-context { padding: 8px; border-radius: 16px; background: var(--bg2); box-shadow: 0 12px 48px #0008; }
+.papo-context button.papo-item { min-height: 38px; font-size: 13px; }
+.papo-context button.papo-item:focus-visible { outline-offset: -2px; }
+.papo-context .vp { max-width: 100%; }
+.papo-gift-toast { gap: 10px; font-size: 13px; line-height: 1.5; }
+.papo-update-notice { flex-wrap: wrap; font-size: 12px; }
+.profile-section { gap: 12px; padding: 16px; }
+.profile-section h4 { margin: 0; }
+.papo-preview > div:last-child { min-width: 0; }
+.papo-preview b, .papo-preview small { overflow-wrap: anywhere; }
+button.ac { background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 70%, var(--ac2))); box-shadow: 0 5px 16px var(--papo-accent-soft); }
+:root[data-theme="light"] #auth { background: radial-gradient(ellipse at 50% 25%, #e9ddfc, #f3f1fb 70%); }
+:root[data-theme="light"] .modal { background: #34225840; }
+
+@media (max-width: 1100px) {
+  #side { width: 220px; min-width: 190px; }
+  #mem { width: 190px; min-width: 160px; }
+  #top { padding: 0 16px; gap: 8px; }
+}
+@media (max-width: 820px) {
+  #rail, #mem { display: none; }
+  #papoChannelToggle { display: grid; flex: none; }
+  #papoSideClose { display: grid; flex: none; }
+  #side { position: absolute; z-index: 30; left: 0; top: 0; bottom: 0; width: min(290px, calc(100% - 48px)); min-width: 0; max-width: none; box-shadow: 12px 0 45px #0008; transform: translateX(-105%); visibility: hidden; transition: transform .2s ease, visibility .2s; }
+  #app.papo-nav-open #side { visibility: visible; transform: none; }
+  #app.papo-nav-open #papoNavShade { display: block; position: absolute; z-index: 29; inset: 0; width: 100%; height: 100%; padding: 0; border-radius: 0; background: #06040a88; }
+  #top { height: 56px; padding: 0 12px; }
+  #srch { width: min(175px, 30vw); }
+  #msgs { padding: 16px 10px; }
+  #cform { padding: 0 14px 16px; }
+  #grid { padding: 12px; gap: 12px; }
+  #ctl { width: calc(100% - 20px); }
+  #tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 10px; }
+  #tabs button { flex: none; }
+  .modal { padding: 10px; }
+  .box, .box.wide { width: min(700px, 100%); max-height: calc(100dvh - 20px); padding: 20px; }
+}
+@media (max-width: 480px) {
+  #top { gap: 7px; padding: 0 10px; }
+  #ttl { flex: 1; font-size: 13px; }
+  #srch { width: 100px; font-size: 11px; }
+  .m .av { width: 28px; height: 28px; font-size: 12px; }
+  .m { padding: 7px 4px; gap: 8px; }
+  .m .t { font-size: 13px; }
+  .m small { font-size: 10px; }
+  .box, .box.wide { padding: 16px; }
+  .profile-section { padding: 12px; }
+  .profile-actions { gap: 6px; }
+  .profile-actions button { flex: 1 1 auto; padding: 8px 10px; }
+  #ctl { gap: 6px; }
+  #ctl select { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #side, .ch, .m, .papo-context, .box { animation: none; transition: none; scroll-behavior: auto; }
+}

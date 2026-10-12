@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 290" role="img" aria-labelledby="title" shape-rendering="crispEdges">
+  <title id="title">Um jardim secreto de flores e vagalumes</title>
+  <defs>
+    <radialGradient id="night"><stop stop-color="#28233e"/><stop offset="1" stop-color="#110e1e"/></radialGradient>
+    <radialGradient id="glow"><stop stop-color="#a5fff1" stop-opacity=".5"/><stop offset="1" stop-color="#a5fff1" stop-opacity="0"/></radialGradient>
+    <g id="violet"><path d="M-2 0h4v31h-4zM-12 18h12v4h-12zM2 11h10v4H2z" fill="#426751"/><path d="M-5-14H5v5h5V1H5v5H-5V1h-5V-9h5z" fill="#b294d5"/><path d="M-3-8h6v6h-6z" fill="#ece0b2"/></g>
+    <g id="white"><path d="M-2 0h4v26h-4zM2 12h8v4H2z" fill="#54775c"/><path d="M-4-12h8v4h5V0H4v5H-4V0h-5V-8h5z" fill="#d8d0e3"/><path d="M-2-7h4v4h-4z" fill="#bca3d8"/></g>
+    <g id="spark"><path d="M-2-6h4v4h4v4H2v4h-4V2h-4v-4h4z" fill="#a2eadd"/></g>
+  </defs>
+  <rect width="480" height="290" fill="url(#night)"/>
+  <path d="M0 0h480v22H452v-8H28v8H0Zm0 22h16v238H0Zm464 0h16v238h-16ZM16 250h26v10h396v-10h26v40H16Z" fill="#322740"/>
+  <path d="M17 23h7v216h-7ZM456 23h7v216h-7ZM40 264h399v7H40Z" fill="#594463" opacity=".45"/>
+  <path d="M32 260v-8h26v-12h24v-9h33v-8h249v8h32v9h25v12h27v8Z" fill="#252034"/>
+  <path d="M132 209h213v8H132Zm-18 16h253v8H114Zm-16 20h290v8H98Z" fill="#44334e" opacity=".55"/>
+  <path d="M138 198h204v28H138z" fill="#1a1525"/>
+  <path d="M145 202h190v6H145Zm3 13h184v5H148Z" fill="#4e3652"/>
+  <path d="M151 204h5v3h-5Zm30 12h9v3h-9Zm24-12h6v3h-6Zm36 12h5v3h-5Zm34-12h7v3h-7Zm26 12h9v3h-9Z" fill="#9c715b" opacity=".4"/>
+
+  <path d="M216 124h12v63h-12zM258 124h12v63h-12z" fill="#694936"/>
+  <path d="M216 124h4v63h-4zM258 124h4v63h-4z" fill="#a27b50"/>
+  <path d="M148 75h184v63H148zM139 84h9v45h-9ZM332 86h9v39h-9Z" fill="#533832"/>
+  <path d="M153 79h174v55H153z" fill="#866140"/>
+  <path d="M153 79h174v6H153zM153 101h174v4H153zM153 128h174v6H153z" fill="#a27e50"/>
+  <path d="M160 89h17v3h-17Zm145 32h15v3h-15Zm-141-6h10v3h-10Zm132-23h22v3h-22Z" fill="#674932"/>
+  <path d="M158 84h4v4h-4Zm160 0h4v4h-4Zm-160 42h4v4h-4Zm160 0h4v4h-4Z" fill="#c4a477"/>
+
+  <g fill="#3d5846">
+    <path d="M41 213h6V45h-6zM47 92h14v5H47zM52 85h22v7H52zM36 141h-16v-6h16zM30 128h-13v7h13zM59 214h6v-71h-6zM65 170h14v6H65zM73 159h16v11H73z"/>
+    <path d="M424 214h6V36h-6zM430 65h16v7h-16zM438 60h21v7h-21zM424 118h-15v-6h15zM399 105h19v9h-19zM402 215h6v-54h-6zM389 184h15v6h-15zM380 176h17v8h-17z"/>
+  </g>
+  <g fill="#263e34"><path d="M22 214h16v-12h15v-10h16v-8h17v30zM375 214h17v-8h14v-8h17v-12h15v20h20v8Z"/></g>
+  <use href="#violet" transform="translate(54 106) scale(1.35)"/>
+  <use href="#white" transform="translate(91 183) scale(1.1)"/>
+  <use href="#violet" transform="translate(71 217)"/>
+  <use href="#white" transform="translate(34 234) scale(.85)"/>
+  <use href="#violet" transform="translate(397 145) scale(1.2)"/>
+  <use href="#white" transform="translate(421 211)"/>
+  <use href="#violet" transform="translate(370 223)"/>
+  <use href="#white" transform="translate(445 246) scale(.8)"/>
+  <path d="M119 187h6v22h-6zM353 188h5v22h-5z" fill="#4e7355"/>
+  <path d="M118 181h8v4h4v7h-4v4h-8v-4h-4v-7h4z" fill="#be91bc"/>
+  <path d="M351 182h8v4h4v7h-4v4h-8v-4h-4v-7h4z" fill="#c2afd5"/>
+  <g shape-rendering="auto" fill="url(#glow)">
+    <circle cx="114" cy="83" r="22"/><circle cx="365" cy="70" r="23"/>
+    <circle cx="62" cy="155" r="18"/><circle cx="381" cy="210" r="18"/>
+    <circle cx="297" cy="192" r="17"/>
+  </g>
+  <use href="#spark" transform="translate(114 83) scale(.75)"/>
+  <use href="#spark" transform="translate(365 70) scale(.65)"/>
+  <use href="#spark" transform="translate(62 155) scale(.5)"/>
+  <use href="#spark" transform="translate(381 210) scale(.5)"/>
+  <path d="M295 190h5v5h-5zM190 48h3v3h-3zM279 42h3v3h-3zM113 244h3v3h-3zM333 248h3v3h-3z" fill="#abccd0" opacity=".65"/>
+  <path d="M226 164h4v-3h4v3h4v4h-4v4h-4v-4h-4z" fill="#aa7aaa" opacity=".7"/>
+</svg>

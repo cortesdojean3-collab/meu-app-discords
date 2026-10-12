@@ -1,0 +1,64 @@
+/* Small, voluntary discoveries. Effect layers never receive pointer input. */
+#papoSurprisesEffects{position:fixed;inset:0;z-index:44;overflow:hidden;pointer-events:none;contain:layout style paint}
+#papoSurprisesEffects *,#papoSurpriseMessage{pointer-events:none!important}
+.papo-secret-corner{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:none;padding:0 14px 2px;min-height:28px}
+.papo-secret-corner[hidden]{display:none}
+.papo-secret-corner button{display:inline-flex;align-items:center;justify-content:center;min-width:28px;min-height:28px;padding:3px;background:transparent;border:1px solid transparent;color:var(--mu,#a9a0bb);border-radius:8px;transition:color .18s,background .18s}
+.papo-secret-corner button:hover,.papo-secret-corner button:focus-visible{background:#aa80ee18;color:#ebd8ff;border-color:#ad83ef50}
+.papo-secret-corner button:focus-visible,.papo-garden button:focus-visible{outline:2px solid #c8a1ff;outline-offset:3px}
+.papo-secret-corner svg{width:20px;height:20px;display:block}
+.papo-secret-corner .papo-garden-path{font-size:11px;line-height:1.3;font-family:inherit;letter-spacing:.02em;padding:5px 7px;color:var(--mu,#a9a0bb)}
+.papo-garden-path[hidden]{display:none!important}
+#papoSurpriseMessage{position:fixed;z-index:47;left:50%;bottom:82px;transform:translateX(-50%);box-sizing:border-box;max-width:min(410px,calc(100% - 32px));width:max-content;padding:12px 17px;background:linear-gradient(120deg,#262037f5,#1b182cf5);border:1px solid #b798f249;border-radius:15px;color:#f2e8ff;box-shadow:0 10px 36px #06030f50;font-size:13px;line-height:1.55;font-family:inherit;text-align:center;animation:papo-surprise-message .25s ease-out both}
+#papoSurpriseMessage.papo-delivery-message{bottom:202px}
+.papo-surprise-bloom{position:absolute;width:86px;height:112px;transform:translate(-50%,-84%);filter:drop-shadow(0 5px 15px #ad71e344);animation:papo-surprise-bloom-out 2.8s ease-out both}
+.papo-surprise-bloom svg{display:block;width:100%;height:100%;overflow:visible}
+.papo-surprise-bloom .stem{stroke-dasharray:90;stroke-dashoffset:90;animation:papo-surprise-stem .45s ease-out forwards}
+.papo-surprise-bloom .flower-head{transform-box:fill-box;transform-origin:center;animation:papo-surprise-bloom .7s cubic-bezier(.2,.7,.2,1.15) both}
+.papo-surprise-bloom .flower-head:nth-of-type(2){animation-delay:.12s}
+.papo-surprise-bloom .flower-head:nth-of-type(3){animation-delay:.22s}
+.papo-surprise-petal{position:absolute;width:var(--petal-size,9px);height:calc(var(--petal-size,9px) * 1.5);border-radius:75% 15% 65% 20%;background:var(--petal-color,#c5a1ef);box-shadow:inset 1px 1px 0 #ffffff3d;opacity:0;animation:papo-surprise-fall var(--fall-duration,3.7s) var(--fall-delay,0s) linear both}
+.papo-surprise-petal.burst{animation-name:papo-surprise-petal-burst;animation-duration:1.8s}
+.papo-surprise-delivery{position:absolute;left:0;bottom:46px;width:clamp(180px,22vw,260px);animation:papo-surprise-delivery 4.7s cubic-bezier(.33,.38,.66,.64) both;will-change:transform}
+.papo-surprise-delivery img{display:block;width:100%;height:auto;filter:drop-shadow(0 10px 16px #0004)}
+.papo-surprise-heart{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);animation:papo-surprise-heart 1.6s ease-out both}
+.papo-surprise-heart svg{width:100%;height:100%;fill:#d0a4f8}
+.papo-garden{position:fixed;z-index:46;right:18px;bottom:84px;box-sizing:border-box;width:min(424px,calc(100% - 28px));max-height:calc(100dvh - 112px);overflow:auto;background:linear-gradient(155deg,#211a32,#161122);border:1px solid #9b78d452;border-radius:21px;color:#efe8fb;box-shadow:0 24px 70px #06031099;animation:papo-garden-enter .25s ease-out both;font-size:13px;line-height:1.5;font-family:inherit;isolation:isolate}
+.papo-garden header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 18px 12px}
+.papo-garden h2{margin:3px 0 0;font-size:18px;line-height:1.3;letter-spacing:-.02em;font-weight:650}
+.papo-garden .papo-garden-eyebrow{margin:0;color:#bdaaCF;font-size:10px;text-transform:uppercase;letter-spacing:.18em}
+.papo-garden .papo-garden-close{display:grid;place-items:center;flex:none;padding:0;width:30px;height:30px;color:#c4b9d6;background:#ffffff09;border:1px solid #ffffff14;border-radius:10px;font-size:20px;line-height:1}
+.papo-garden .papo-garden-close:hover{background:#ffffff12;color:#fff}
+.papo-garden-view{position:relative;aspect-ratio:480/290;margin:0 12px;overflow:hidden;border-radius:12px;border:1px solid #a48bd022;background:#100d1e}
+.papo-garden-scene{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:pixelated;pointer-events:none}
+.papo-garden-view button{position:absolute;display:grid;place-items:center;margin:0;padding:0;color:#f2e8ff;background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer}
+.papo-garden-view button:hover{background:#e6cdff0d;border-color:#d8bbff55;box-shadow:0 0 16px #c493eb18}
+.papo-garden-sign{left:31%;top:24%;width:37%;height:29%;font-weight:600;font-size:11px;line-height:1.4;font-family:inherit;letter-spacing:.03em;color:#f4e5c3!important;text-shadow:0 2px 0 #2a172e}
+.papo-garden-firefly{left:77%;top:30%;width:13%;height:20%;border-radius:50%!important}
+.papo-garden-firefly::after{content:'';width:6px;height:6px;background:#a6ffef;box-shadow:0 0 12px 4px #9cfff85c;animation:papo-garden-firefly 2.4s ease-in-out infinite}
+.papo-garden-plot{left:24%;top:66%;width:50%;height:21%;gap:5px;font-size:10px}
+.papo-garden-sprouts{position:absolute;left:25%;top:63%;width:47%;height:24%;display:flex;align-items:flex-end;justify-content:center;gap:3px;pointer-events:none}
+.papo-garden-sprouts span{display:flex;align-items:flex-end;flex:0 1 24px}
+.papo-garden-sprouts svg{width:24px;height:38px;overflow:visible;animation:papo-surprise-bloom .55s ease-out both}
+.papo-garden .papo-garden-note{margin:12px 18px 8px;min-height:39px;font-size:13px;line-height:1.5;color:#e3d4f5;text-align:center}
+.papo-garden footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 18px 16px;color:#958aa8;font-size:10px}
+.papo-garden footer button{padding:5px 9px;font-size:11px;color:#ccb4eb;background:#a87bea13;border:1px solid #bc91f826;border-radius:8px}
+.papo-garden footer button:hover{background:#a87bea26}
+.papo-garden.lit .papo-garden-view{box-shadow:inset 0 0 48px #9aeee51c;border-color:#a6fff45c}
+.papo-surprises-still .papo-surprise-bloom .stem{animation:none;stroke-dashoffset:0}
+.papo-surprises-still .papo-surprise-bloom .flower-head,.papo-surprises-still .papo-surprise-heart,.papo-surprises-still .papo-garden-sprouts svg,.papo-surprises-still .papo-garden-firefly::after{animation:none}
+.papo-surprises-still .papo-surprise-delivery{animation:none;left:50%;width:190px;transform:translateX(-50%)}
+.papo-surprises-still.papo-garden,#papoSurpriseMessage.papo-surprises-still,.papo-surprises-still .papo-surprise-bloom{animation:none}
+@keyframes papo-surprise-message{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}
+@keyframes papo-surprise-stem{to{stroke-dashoffset:0}}
+@keyframes papo-surprise-bloom{from{opacity:0;transform:scale(.15)}to{opacity:1;transform:scale(1)}}
+@keyframes papo-surprise-bloom-out{0%,70%{opacity:1}100%{opacity:0}}
+@keyframes papo-surprise-fall{0%{opacity:0;transform:translate(0,-20px) rotate(0)}12%{opacity:.58}80%{opacity:.58}100%{opacity:0;transform:translate(var(--petal-drift,40px),calc(100dvh + 80px)) rotate(var(--petal-spin,220deg))}}
+@keyframes papo-surprise-petal-burst{0%{opacity:0;transform:translate(0,0) rotate(0)}18%{opacity:.75}100%{opacity:0;transform:translate(var(--petal-drift,40px),-64px) rotate(150deg)}}
+@keyframes papo-surprise-delivery{from{transform:translateX(calc(-100% - 28px))}to{transform:translateX(calc(100vw + 28px))}}
+@keyframes papo-surprise-heart{0%{opacity:0;translate:0 5px;scale:.45}20%{opacity:.9;scale:1}100%{opacity:0;translate:0 -45px;scale:.8}}
+@keyframes papo-garden-enter{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+@keyframes papo-garden-firefly{50%{opacity:.55;box-shadow:0 0 18px 5px #9cfff83c}}
+@media(max-width:520px){.papo-garden{right:14px;bottom:78px;max-height:calc(100dvh - 98px)}#papoSurpriseMessage{bottom:78px;font-size:12px}.papo-garden header{padding:14px 15px 10px}.papo-garden-sign{font-size:10px}.papo-surprise-delivery{bottom:44px}}
+@media(max-width:520px){#papoSurpriseMessage.papo-delivery-message{bottom:166px}}
+@media(prefers-reduced-motion:reduce){#papoSurpriseMessage,.papo-garden,.papo-garden-sprouts svg,.papo-garden-firefly::after{animation:none}.papo-surprise-bloom .stem{animation:none;stroke-dashoffset:0}.papo-surprise-bloom .flower-head{animation:none}.papo-secret-corner button{transition:none}}
