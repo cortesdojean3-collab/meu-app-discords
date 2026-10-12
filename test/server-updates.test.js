@@ -6,10 +6,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
+const WebSocket = require('ws');
 
 const root = path.resolve(__dirname, '..');
 const turnSecret = 'test-only-turn-secret';
-let child, base, tempDir;
+let child, base, tempDir, serverEnv;
 
 async function freePort() {
   const probe = net.createServer();
@@ -19,13 +20,57 @@ async function freePort() {
   return port;
 }
 
+function saveProfileOverSocket(cookie, profile) {
+  return new Promise((resolve,reject) => {
+    const socket = new WebSocket(base.replace(/^http/,'ws')+'/ws',{headers:{Cookie:cookie,Origin:base}});
+    const timer=setTimeout(()=>{socket.close();reject(new Error('profile persistence acknowledgement timed out'))},5000);
+    socket.on('open',()=>socket.send(JSON.stringify({t:'sub',c:'profiles'})));
+    socket.on('message',raw=>{
+      const message=JSON.parse(raw.toString());
+      if(message.t==='hist'&&message.c==='profiles')socket.send(JSON.stringify({t:'set',c:'profiles',d:profile,rid:'profile-test'}));
+      if(message.t==='ack'&&message.rid==='profile-test'){clearTimeout(timer);socket.close();message.ok?resolve():reject(new Error(message.erro))}
+    });
+    socket.on('error',error=>{clearTimeout(timer);reject(error)});
+  });
+}
+
+function readProfileOverSocket(cookie, uid) {
+  return new Promise((resolve,reject) => {
+    const socket=new WebSocket(base.replace(/^http/,'ws')+'/ws',{headers:{Cookie:cookie,Origin:base}});
+    const timer=setTimeout(()=>{socket.close();reject(new Error('profile history timed out'))},5000);
+    socket.on('open',()=>socket.send(JSON.stringify({t:'sub',c:'profiles'})));
+    socket.on('message',raw=>{const message=JSON.parse(raw.toString());if(message.t==='hist'&&message.c==='profiles'){clearTimeout(timer);socket.close();resolve(message.items.find(item=>item.id===uid)?.d)}});
+    socket.on('error',error=>{clearTimeout(timer);reject(error)});
+  });
+}
+
+function saveMessageOverSocket(cookie, text) {
+  return new Promise((resolve,reject) => {
+    const socket=new WebSocket(base.replace(/^http/,'ws')+'/ws',{headers:{Cookie:cookie,Origin:base}});
+    const timer=setTimeout(()=>{socket.close();reject(new Error('message persistence acknowledgement timed out'))},5000);
+    socket.on('open',()=>socket.send(JSON.stringify({t:'sub',c:'msgs-geral'})));
+    socket.on('message',raw=>{const message=JSON.parse(raw.toString());if(message.t==='hist'&&message.c==='msgs-geral')socket.send(JSON.stringify({t:'add',c:'msgs-geral',d:{text,cid:crypto.randomUUID()}}));if(message.t==='doc'&&message.c==='msgs-geral'&&message.d?.text===text){clearTimeout(timer);socket.close();resolve(message.id)}});
+    socket.on('error',error=>{clearTimeout(timer);reject(error)});
+  });
+}
+
+function readMessageOverSocket(cookie, id) {
+  return new Promise((resolve,reject) => {
+    const socket=new WebSocket(base.replace(/^http/,'ws')+'/ws',{headers:{Cookie:cookie,Origin:base}});
+    const timer=setTimeout(()=>{socket.close();reject(new Error('message history timed out'))},5000);
+    socket.on('open',()=>socket.send(JSON.stringify({t:'sub',c:'msgs-geral'})));
+    socket.on('message',raw=>{const message=JSON.parse(raw.toString());if(message.t==='hist'&&message.c==='msgs-geral'){clearTimeout(timer);socket.close();resolve(message.items.find(item=>item.id===id)?.d)}});
+    socket.on('error',error=>{clearTimeout(timer);reject(error)});
+  });
+}
+
 before(async () => {
   const port = await freePort();
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'papo-server-test-'));
   base = `http://127.0.0.1:${port}`;
-  const env = { ...process.env, PORT: String(port), DATA_FILE: path.join(tempDir, 'data.json'), TURN_URLS: 'turn:relay.example.invalid:3478?transport=udp', TURN_SECRET: turnSecret, INVITE_CODE: '' };
-  delete env.DATABASE_URL;
-  child = spawn(process.execPath, ['server.js'], { cwd: root, env, stdio: 'ignore' });
+  serverEnv = { ...process.env, PORT: String(port), DATA_FILE: path.join(tempDir, 'data.json'), TURN_URLS: 'turn:relay.example.invalid:3478?transport=udp', TURN_SECRET: turnSecret, INVITE_CODE: '' };
+  delete serverEnv.DATABASE_URL;
+  child = spawn(process.execPath, ['server.js'], { cwd: root, env: serverEnv, stdio: process.env.PAPO_TEST_LOG ? 'inherit' : 'ignore' });
   let ready = false;
   for (let attempt = 0; attempt < 60; attempt++) {
     if (child.exitCode !== null) throw new Error(`server.js exited with ${child.exitCode}`);
@@ -91,4 +136,43 @@ test('authenticated ICE endpoint mints short-lived TURN credentials', async () =
 test('ICE endpoint rejects cross-origin credential requests', async () => {
   const response = await fetch(`${base}/ice`, { headers: { Origin: 'https://attacker.example' } });
   assert.equal(response.status, 403);
+});
+
+test('accounts and password hashes survive a backend restart', async () => {
+  const username = `persist-${crypto.randomBytes(5).toString('hex')}`;
+  const password = 'test-password-123';
+  const registration = await fetch(`${base}/api/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user:username,pass:password}) });
+  assert.equal(registration.status, 200);
+  const first = await registration.json();
+  const cookieLine = registration.headers.getSetCookie?.()[0] || registration.headers.get('set-cookie');
+  const cookie = cookieLine.split(';',1)[0];
+  const profile={name:'Teste persistente',status:'online',bio:'Perfil recuperado depois da reinicialização',color:'#7c3aed',avatar:''};
+  await saveProfileOverSocket(cookie,profile);
+  const messageId=await saveMessageOverSocket(cookie,`mensagem-${crypto.randomUUID()}`);
+  const dbPath = serverEnv.DATA_FILE;
+  const saved = JSON.parse(await fs.promises.readFile(dbPath,'utf8'));
+  assert.ok(saved.users[username].hash);
+  assert.notEqual(saved.users[username].hash, password);
+
+  child.kill();
+  await new Promise(resolve => child.once('exit', resolve));
+  const port = Number(new URL(base).port);
+  child = spawn(process.execPath, ['server.js'], { cwd:root, env:serverEnv, stdio:process.env.PAPO_TEST_LOG ? 'inherit' : 'ignore' });
+  let ready = false;
+  for (let attempt=0;attempt<60;attempt++) {
+    try { if ((await fetch(`${base}/health`)).ok) { ready=true; break; } } catch {}
+    await new Promise(resolve => setTimeout(resolve,100));
+  }
+  assert.equal(ready,true,'server should restart with the same persistent store');
+  const login = await fetch(`${base}/api/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user:username,pass:password}) });
+  assert.equal(login.status,200);
+  assert.equal((await login.json()).uid,first.uid);
+  const resumed = await fetch(`${base}/api/me`, { headers:{Cookie:cookie} });
+  assert.equal(resumed.status,200);
+  assert.equal((await resumed.json()).uid,first.uid);
+  const loginCookieLine=login.headers.getSetCookie?.()[0]||login.headers.get('set-cookie');
+  const persistedProfile=await readProfileOverSocket(loginCookieLine.split(';',1)[0],first.uid);
+  assert.equal(persistedProfile.bio,profile.bio);
+  const persistedMessage=await readMessageOverSocket(loginCookieLine.split(';',1)[0],messageId);
+  assert.equal(persistedMessage.by,first.uid);
 });

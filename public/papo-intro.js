@@ -12,16 +12,17 @@
   function stopSound() {
     nodes.splice(0).forEach(node => { try { node.stop(); } catch {} });
     if (context) { const old = context; context = null; old.close().catch(() => {}); }
-    if (soundButton) { soundButton.textContent = '🄊 Tocar som do motor'; soundButton.setAttribute('aria-pressed', 'false'); }
+    if (soundButton) { soundButton.textContent = '🔊 Ativar som do motor'; soundButton.setAttribute('aria-pressed', 'false'); }
   }
 
-  async function toggleSound() {
+  async function toggleSound(automatic = false) {
     if (context) { stopSound(); return; }
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) { soundButton.textContent = 'Som indisponível'; return; }
     try {
       context = new AudioContext();
       await context.resume();
+      if (automatic && context.state !== 'running') throw new Error('A reprodução automática aguarda interação do usuário.');
       const t = context.currentTime, master = context.createGain(), filter = context.createBiquadFilter();
       master.gain.setValueAtTime(.0001, t); master.gain.linearRampToValueAtTime(.13, t + .22); master.gain.linearRampToValueAtTime(.09, t + 1.55); master.gain.linearRampToValueAtTime(.0001, t + 2.8);
       filter.type = 'lowpass'; filter.frequency.value = 520; filter.Q.value = .7; filter.connect(master); master.connect(context.destination);
@@ -31,9 +32,9 @@
       for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * .18;
       const noise = context.createBufferSource(), noiseGain = context.createGain(), noiseFilter = context.createBiquadFilter();
       noise.buffer = buffer; noise.loop = true; noiseFilter.type = 'lowpass'; noiseFilter.frequency.value = 170; noiseGain.gain.value = .16; noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(master); noise.start(t); noise.stop(t + 2.85); nodes.push(noise);
-      soundButton.textContent = '🄇 Silenciar som'; soundButton.setAttribute('aria-pressed', 'true');
+      soundButton.textContent = '🔇 Desativar som do motor'; soundButton.setAttribute('aria-pressed', 'true');
       setTimeout(() => { if (context && context.currentTime >= t + 2.75) stopSound(); }, 2900);
-    } catch { stopSound(); soundButton.textContent = 'Não foi possível tocar o som'; }
+    } catch { stopSound(); soundButton.textContent = automatic ? 'Clique para ativar o som do motor' : 'Som indisponível neste dispositivo'; }
   }
 
   function finish() {
@@ -47,4 +48,8 @@
   skipButton?.addEventListener('click', finish);
   soundButton?.addEventListener('click', toggleSound);
   skipButton?.focus({ preventScroll: true });
+  try {
+    const preferences=JSON.parse(localStorage.getItem('papo.extras.v1')||'{}');
+    if(preferences.introSound!==false)toggleSound(true);
+  } catch {}
 })();
