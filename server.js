@@ -1,43 +1,36 @@
 const http = require('http'), https = require('https'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { WebSocketServer } = require('ws');
+const { createStorage } = require('./storage');
 const PORT = +process.env.PORT || 3000, HOST = '0.0.0.0', INVITE = process.env.INVITE_CODE || '';
 const DEFAULT_REPO = 'cortesdojean3-collab/meu-app-discords';
 const configuredRepo = process.env.GITHUB_REPO || DEFAULT_REPO;
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(configuredRepo) ? configuredRepo : DEFAULT_REPO;
 const DB = process.env.DATA_FILE || path.join(__dirname, 'data.json'), START = Date.now();
 const APP_VERSION = require('./package.json').version;
-const BUILD_ID = (process.env.RENDER_GIT_COMMIT || process.env.GITHUB_SHA || crypto.createHash('sha256').update(['server.js','main.js','preload.js','package.json','public/index.html','public/app.html','public/papo-enhancements.js','public/papo-intro.css','public/papo-intro.js','public/kombi.svg'].map(f=>fs.readFileSync(path.join(__dirname,f))).join('\0')).digest('hex')).slice(0,12);
+const BUILD_ID = (process.env.RENDER_GIT_COMMIT || process.env.GITHUB_SHA || crypto.createHash('sha256').update(['server.js','storage.js','migrations/001_persistent_data.sql','main.js','preload.js','package.json','public/index.html','public/app.html','public/papo-enhancements.js','public/papo-intro.css','public/papo-intro.js','public/kombi.svg'].map(f=>fs.readFileSync(path.join(__dirname,f))).join('\0')).digest('hex')).slice(0,12);
 const FILES = { win: 'Papo-win.exe', mac: 'Papo-mac.dmg', linux: 'Papo-linux.AppImage' };
 const MIME = { '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
-const VC = ['voz1', 'voz2'], EMOJI = ['🁍', '❤️', '🈂', '𞾉', '🈮'], DAY = 864e5, TTL_SHORT = 12 * 36e5, TTL_LONG = 30 * DAY;
+const VC = ['voz1', 'voz2'], EMOJI = ['👍', '❤️', '😂', '🎉', '😮'], DAY = 864e5, TTL_SHORT = 12 * 36e5, TTL_LONG = 30 * DAY;
 const log = (l, ctx, msg, x) => (l === 'error' ? console.error : console.log)(JSON.stringify({ t: new Date().toISOString(), l, ctx, msg, ...x }));
 const TEMP = /ECONNRESET|EPIPE|ETIMEDOUT|ERR_STREAM|socket hang up|ECONNABORTED/;
 process.on('uncaughtException', e => { if (TEMP.test((e.code || '') + e.message)) return log('warn', 'proc', 'erro de rede ignorado', { m: e.message }); log('error', 'proc', 'erro fatal', { m: e.message, s: (e.stack || '').split('\n')[1] }); shutdown('fatal', 1); });
 process.on('unhandledRejection', e => log('error', 'proc', 'promise rejeitada', { m: String((e && e.message) || e) }));
-/* ---------- banco: Postgres (DATABASE_URL) ou arquivo ---------- */
-let data = {}, pool = null, tm, flushing = false, again = false;
+/* ---------- persistência: Postgres relacional ou arquivo local ---------- */
+const storage = createStorage({ databaseUrl: process.env.DATABASE_URL, dataFile: DB });
+let data = {}, tm, flushing = false, again = false;
 async function load() {
-  if (process.env.DATABASE_URL) {
-    const { Pool } = require('pg'), url = process.env.DATABASE_URL;
-    pool = new Pool({ connectionString: url, max: 4, idleTimeoutMillis: 30000, connectionTimeoutMillis: 10000, ssl: /localhost|127\.0\.0\.1/.test(url) ? false : { rejectUnauthorized: false } });
-    pool.on('error', e => log('warn', 'db', 'conexao ociosa caiu (pool se recupera)', { m: e.message }));
-    await pool.query('create table if not exists kv(k text primary key, v jsonb not null)');
-    const r = await pool.query("select v from kv where k='main'"); if (r.rows[0]) data = r.rows[0].v;
-  } else { try { data = JSON.parse(fs.readFileSync(DB)); } catch (e) {} log('warn', 'db', 'sem DATABASE_URL: dados em arquivo (no plano gratis do Render somem a cada deploy)'); }
-  for (const k of ['users', 'profiles', 'msgs', 'sessions']) data[k] = data[k] || {};
-  delete data.tokens; // tokens antigos (localStorage) foram substituidos por cookies; contas sao mantidas
+  data = await storage.load();
+  if (!storage.persistent) log('warn', 'db', 'DATABASE_URL não configurada; arquivo local pode ser perdido em novo deploy');
 }
 async function flush() {
   if (flushing) { again = true; return; } flushing = true;
   try {
-    const s = JSON.stringify(data);
-    if (pool) await pool.query("insert into kv(k,v) values('main',$1) on conflict(k) do update set v=excluded.v", [s]);
-    else { await fs.promises.writeFile(DB + '.tmp', s); await fs.promises.rename(DB + '.tmp', DB); }
-  } catch (e) { log('error', 'db', 'falha ao salvar', { m: e.message }); }
-  finally { flushing = false; if (again) { again = false; flush(); } }
+    await storage.save(data);
+  } catch (e) { log('error', 'db', 'falha ao salvar', { m: e.message }); throw e; }
+  finally { flushing = false; if (again) { again = false; await flush(); } }
 }
-const save = () => { clearTimeout(tm); tm = setTimeout(flush, 800); };
-const flushAll = async () => { clearTimeout(tm); await flush(); while (flushing || again) await new Promise(r => setTimeout(r, 50)); };
+const save = () => { clearTimeout(tm); tm = setTimeout(() => flush().catch(() => {}), 800); };
+const flushAll = async () => { clearTimeout(tm); while (flushing) await new Promise(r => setTimeout(r, 10)); await flush(); };
 /* ---------- sessoes (cookie HttpOnly) e contas ---------- */
 const json = (res, code, o) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
 const sh = s => crypto.createHash('sha256').update(String(s)).digest('hex');
@@ -67,8 +60,9 @@ const readJson = req => new Promise(ok => { let b = ''; req.on('data', d => { b 
 const ip = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim();
 function newSession(req, res, uid, remember) {
   const sid = crypto.randomBytes(32).toString('base64url');
-  data.sessions[sh(sid)] = { uid, remember, exp: Date.now() + (remember ? TTL_LONG : TTL_SHORT), ts: Date.now(), ua: String(req.headers['user-agent'] || '').slice(0, 70) };
-  save(); setCookie(req, res, sid, remember);
+  const key = sh(sid);
+  data.sessions[key] = { uid, remember, exp: Date.now() + (remember ? TTL_LONG : TTL_SHORT), ts: Date.now(), ua: String(req.headers['user-agent'] || '').slice(0, 70) };
+  return flushAll().then(() => setCookie(req, res, sid, remember)).catch(error => { delete data.sessions[key]; throw error; });
 }
 async function auth(req, res, reg) {
   if (!/application\/json/.test(req.headers['content-type'] || '')) return json(res, 415, { erro: 'Requisição inválida.' });
@@ -85,33 +79,38 @@ async function auth(req, res, reg) {
       const salt = crypto.randomBytes(16).toString('hex'), h = await scrypt(pass, salt);
       if (data.users[key]) return json(res, 409, { erro: 'Esse usuário já existe.' });
       const uid = crypto.randomUUID();
-      data.users[key] = { uid, salt, hash: h, name };
+      data.users[key] = { uid, salt, hash: h, name, createdAt: Date.now() };
       data.profiles[uid] = { name, status: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], avatar: '' };
+      try { await flushAll(); } catch (error) { delete data.users[key]; delete data.profiles[uid]; return json(res, 503, { erro: 'Não foi possível salvar sua conta. Verifique a conexão e tente novamente.' }); }
       bc({ t: 'doc', c: 'profiles', id: uid, d: data.profiles[uid] });
-      newSession(req, res, uid, !!b.remember); log('info', 'auth', 'conta criada', { uid });
+      await newSession(req, res, uid, !!b.remember); log('info', 'auth', 'conta criada', { uid });
       return json(res, 200, { uid, name });
     } finally { inflight.delete(key); }
   }
   const u = data.users[key], h = await scrypt(pass, u ? u.salt : 'x'.repeat(32));
   if (!u || !crypto.timingSafeEqual(Buffer.from(h), Buffer.from(u.hash))) return json(res, 401, { erro: 'Usuário ou senha incorretos.' });
-  newSession(req, res, u.uid, !!b.remember); json(res, 200, { uid: u.uid, name: u.name });
+  await newSession(req, res, u.uid, !!b.remember); json(res, 200, { uid: u.uid, name: u.name });
 }
-function dropSessions(uid, keep) { for (const k in data.sessions) if (data.sessions[k].uid === uid && k !== keep) delete data.sessions[k]; C.forEach(c => { if (c.uid === uid && c.sh !== keep) { try { c.ws.close(4001); } catch (e) {} } }); save(); }
+async function dropSessions(uid, keep) { const removed=[]; for (const k in data.sessions) if (data.sessions[k].uid === uid && k !== keep) { removed.push([k,data.sessions[k]]); delete data.sessions[k]; } try { await flushAll(); } catch (error) { removed.forEach(([k,v]) => data.sessions[k]=v); throw error; } C.forEach(c => { if (c.uid === uid && c.sh !== keep) { try { c.ws.close(4001); } catch (e) {} } }); }
 async function api(req, res, u) {
   if (req.method === 'POST' && !sameOrigin(req)) return json(res, 403, { erro: 'Origem não permitida.' });
   if (u === '/api/login' || u === '/api/register') return req.method === 'POST' ? auth(req, res, u === '/api/register') : json(res, 405, {});
   const s = sess(req);
   if (u === '/api/me') { if (!s) return json(res, 401, { erro: 'Sessão expirada.' }); renew(req, res, s); return json(res, 200, { uid: s.uid }); }
   if (!s) return json(res, 401, { erro: 'Sessão expirada.' });
-  if (u === '/api/logout' && req.method === 'POST') { delete data.sessions[s.k]; save(); C.forEach(c => { if (c.sh === s.k) try { c.ws.close(4001); } catch (e) {} }); setCookie(req, res, '', false, true); return json(res, 200, {}); }
+  if (u === '/api/logout' && req.method === 'POST') { delete data.sessions[s.k]; await flushAll(); C.forEach(c => { if (c.sh === s.k) try { c.ws.close(4001); } catch (e) {} }); setCookie(req, res, '', false, true); return json(res, 200, {}); }
   if (u === '/api/sessions') return json(res, 200, Object.entries(data.sessions).filter(([, v]) => v.uid === s.uid).map(([k, v]) => ({ ua: v.ua || 'Dispositivo', ts: v.ts, current: k === s.k })));
-  if (u === '/api/sessions/revoke-others' && req.method === 'POST') { dropSessions(s.uid, s.k); return json(res, 200, {}); }
+  if (u === '/api/sessions/revoke-others' && req.method === 'POST') { await dropSessions(s.uid, s.k); return json(res, 200, {}); }
   if (u === '/api/delete' && req.method === 'POST') {
     const b = await readJson(req), me = Object.entries(data.users).find(([, v]) => v.uid === s.uid);
     if (!me || !crypto.timingSafeEqual(Buffer.from(await scrypt(String(b.pass || ''), me[1].salt)), Buffer.from(me[1].hash))) return json(res, 401, { erro: 'Senha incorreta.' });
+    const before=data; data=JSON.parse(JSON.stringify(data));
     delete data.users[me[0]]; delete data.profiles[s.uid];
     for (const c in data.msgs) data.msgs[c] = data.msgs[c].filter(m => m.d.by !== s.uid);
-    dropSessions(s.uid, null); setCookie(req, res, '', false, true); bc({ t: 'doc', c: 'profiles', id: s.uid, d: null }); log('info', 'auth', 'conta excluida', { uid: s.uid });
+    for (const k in data.sessions) if(data.sessions[k].uid===s.uid) delete data.sessions[k];
+    try { await flushAll(); } catch (error) { data=before; return json(res,503,{erro:'Não foi possível excluir a conta agora. Tente novamente.'}); }
+    C.forEach(c => { if (c.uid === s.uid) try { c.ws.close(4001); } catch (e) {} });
+    setCookie(req, res, '', false, true); bc({ t: 'doc', c: 'profiles', id: s.uid, d: null }); log('info', 'auth', 'conta excluida', { uid: s.uid });
     return json(res, 200, {});
   }
   json(res, 404, { erro: 'Não encontrado.' });
@@ -196,8 +195,8 @@ const srv = http.createServer(async (req, res) => {
     let u; try { u = decodeURIComponent(req.url.split('?')[0]); } catch (e) { res.writeHead(400); return res.end(); }
     if (u.startsWith('/api/')) { if (u === '/api/downloads') return json(res, 200, await avail()); if (u === '/api/version') { res.setHeader('Cache-Control','no-store'); return json(res,200,{version:APP_VERSION,build:BUILD_ID}); } return await api(req, res, u); }
     if (u === '/health') {
-      let ok = true; if (pool) { try { await Promise.race([pool.query('select 1'), new Promise((_, j) => setTimeout(() => j(new Error('timeout')), 3000))]); } catch (e) { ok = false; } }
-      return json(res, ok ? 200 : 503, { ok, uptime: Math.round((Date.now() - START) / 1000), rssMB: Math.round(process.memoryUsage().rss / 1048576), clientes: C.size, usuarios: Object.keys(data.users).length, banco: pool ? 'postgres' : 'arquivo', persistente: !!pool, alertaPersistencia: pool ? null : 'DATABASE_URL não configurada; o arquivo local pode ser perdido em um redeploy.', github: REPO, downloads: fs.existsSync(path.join(__dirname, 'downloads')) ? fs.readdirSync(path.join(__dirname, 'downloads')) : [] });
+      let ok = true; if (storage.persistent) { try { await Promise.race([storage.health(), new Promise((_, j) => setTimeout(() => j(new Error('timeout')), 3000))]); } catch (e) { ok = false; } }
+      return json(res, ok ? 200 : 503, { ok, uptime: Math.round((Date.now() - START) / 1000), rssMB: Math.round(process.memoryUsage().rss / 1048576), clientes: C.size, usuarios: Object.keys(data.users).length, banco: storage.persistent ? 'postgres' : 'arquivo', persistente: storage.persistent, alertaPersistencia: storage.persistent ? null : 'DATABASE_URL não configurada; o arquivo local pode ser perdido em um redeploy.', github: REPO, downloads: fs.existsSync(path.join(__dirname, 'downloads')) ? fs.readdirSync(path.join(__dirname, 'downloads')) : [] });
     }
     if (u === '/') return serve(res, path.join(__dirname, 'public/index.html'));
     if (u === '/app') return serveApp(res, path.join(__dirname, 'public/app.html'));
@@ -240,11 +239,11 @@ wss.on('connection', ws => {
     if (c.blocked) return;
     if (Date.now() - c.t0 > 5000) { c.t0 = Date.now(); c.n = 0; } if (++c.n > 400) { c.blocked = true; log('warn', 'ws', 'excesso de mensagens', { uid: c.uid }); return ws.close(1008); }
     let m; try { m = JSON.parse(raw); } catch (e) { return; } if (!m || typeof m.t !== 'string') return;
-    try { handle(c, ws, m); } catch (e) { log('error', 'ws', 'erro ao tratar mensagem', { tipo: m.t, m: e.message }); }
+    handle(c, ws, m).catch(e => { log('error', 'ws', 'erro ao tratar mensagem', { tipo: m.t, m: e.message }); if (m.rid) ws.send(JSON.stringify({ t:'ack', rid:m.rid, ok:false, erro:'Não foi possível salvar os dados. Verifique a conexão e tente novamente.' })); });
   });
   ws.on('close', () => { if (C.get(c.peer) === c) { C.delete(c.peer); peers(); } });
 });
-function handle(c, ws, m) {
+async function handle(c, ws, m) {
   const chan = /^msgs-(geral|jogos|memes)$/;
   if (m.t === 'pres') { c.pres = cleanPres(m.p, c.uid); peers(); }
   else if (m.t === 'emit') { const payload=m.data, d=payload&&typeof payload.to==='string'&&payload.to.length<=32?C.get(payload.to):null; const sig=payload&&((payload.k==='c'&&payload.c&&typeof payload.c.candidate==='string'&&payload.c.candidate.length<=8192)||(payload.k==='d'&&typeof payload.id==='string'&&/^[a-z0-9_-]{1,32}$/i.test(payload.id)&&Number.isInteger(payload.n)&&payload.n>0&&payload.n<=64&&Number.isInteger(payload.i)&&payload.i>=0&&payload.i<payload.n&&typeof payload.s==='string'&&payload.s.length<=2400)); if(m.topic==='sig'&&sig&&d&&c.pres.vc&&d.pres.vc===c.pres.vc)d.ws.send(JSON.stringify({t:'emit',topic:'sig',data:payload,peer:c.peer})); }
@@ -262,16 +261,16 @@ function handle(c, ws, m) {
     if (cid) { if (rs.has(cid)) return; rs.add(cid); if (rs.size > 200) rs.delete(rs.values().next().value); }
     const it = { id: Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), d: { by: c.uid, text: m.d.text.trim().slice(0, 1500), ts: Date.now() } };
     if (m.d.r && findMsg(m.c, String(m.d.r))) it.d.r = String(m.d.r);
-    const a = data.msgs[m.c] = data.msgs[m.c] || []; a.push(it); if (a.length > 500) a.shift(); save(); bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
+    const a = data.msgs[m.c] = data.msgs[m.c] || []; a.push(it); const dropped=a.length>500?a.shift():null; try { await flushAll(); } catch(e) { a.pop(); if(dropped)a.unshift(dropped); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
   } else if (m.t === 'edit' && chan.test(m.c)) {
     const it = findMsg(m.c, String(m.id)); if (!it || it.d.by !== c.uid || typeof m.text !== 'string' || !m.text.trim()) return;
-    it.d.text = m.text.trim().slice(0, 1500); it.d.edited = true; save(); bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
+    const old=JSON.stringify(it.d); it.d.text = m.text.trim().slice(0, 1500); it.d.edited = true; try { await flushAll(); } catch(e) { it.d=JSON.parse(old); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
   } else if (m.t === 'del' && chan.test(m.c)) {
     const it = findMsg(m.c, String(m.id)); if (!it || it.d.by !== c.uid) return;
-    data.msgs[m.c] = data.msgs[m.c].filter(x => x !== it); save(); bc({ t: 'del', c: m.c, id: it.id });
+    const items=data.msgs[m.c], index=items.indexOf(it); data.msgs[m.c] = items.filter(x => x !== it); try { await flushAll(); } catch(e) { data.msgs[m.c].splice(index,0,it); throw e; } bc({ t: 'del', c: m.c, id: it.id });
   } else if (m.t === 'react' && chan.test(m.c) && EMOJI.includes(m.e)) {
     const it = findMsg(m.c, String(m.id)); if (!it) return; const re = it.d.re = it.d.re || {}, a = re[m.e] = re[m.e] || [], i = a.indexOf(c.uid);
-    if (i < 0) { if (a.length < 50) a.push(c.uid); } else a.splice(i, 1); if (!a.length) delete re[m.e]; save(); bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
+    const old=JSON.stringify(it.d); if (i < 0) { if (a.length < 50) a.push(c.uid); } else a.splice(i, 1); if (!a.length) delete re[m.e]; try { await flushAll(); } catch(e) { it.d=JSON.parse(old); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
   } else if (m.t === 'typing' && chan.test(m.c)) {
     const k = c.uid + m.c; if (Date.now() - (lastTyping.get(k) || 0) < 1500) return; lastTyping.set(k, Date.now());
     const s = JSON.stringify({ t: 'typing', c: m.c, uid: c.uid }); C.forEach(o => o !== c && o.ws.readyState === 1 && o.ws.send(s));
@@ -279,7 +278,8 @@ function handle(c, ws, m) {
     const d = m.d || {}, av = String(d.avatar || '');
     const p = { name: String(d.name || 'Sem nome').trim().slice(0, 24) || 'Sem nome', status: String(d.status || '').slice(0, 60), bio: String(d.bio || '').trim().slice(0, 160), color: /^#[0-9a-f]{6}$/i.test(d.color) ? d.color : '#7c3aed',
       avatar: /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(av) && av.length < 60000 ? av : '' };
-    data.profiles[c.uid] = p; save(); bc({ t: 'doc', c: 'profiles', id: c.uid, d: p });
+    const old=data.profiles[c.uid]; data.profiles[c.uid] = p; try { await flushAll(); } catch(e) { if(old)data.profiles[c.uid]=old;else delete data.profiles[c.uid]; throw e; } bc({ t: 'doc', c: 'profiles', id: c.uid, d: p });
+    if(m.rid) ws.send(JSON.stringify({t:'ack',rid:m.rid,ok:true}));
   }
 }
 setInterval(() => { wss.clients.forEach(w => { if (!w.isAlive) return w.terminate(); w.isAlive = false; try { w.ping(); } catch (e) {} }); if (lastTyping.size > 500) lastTyping.clear(); }, 25000).unref();
@@ -290,7 +290,7 @@ async function shutdown(sig, code) {
   if (closing) return; closing = true; log('info', 'proc', 'encerrando', { sig });
   setTimeout(() => process.exit(code || 0), 8000).unref();
   srv.close(); C.forEach(c => { try { c.ws.send('{"t":"bye"}'); c.ws.close(1001); } catch (e) {} });
-  try { await flushAll(); if (pool) await pool.end(); } catch (e) {}
+   try { await flushAll(); await storage.close(); } catch (e) {}
   process.exit(code || 0);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM')); process.on('SIGINT', () => shutdown('SIGINT'));
