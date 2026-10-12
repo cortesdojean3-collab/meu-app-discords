@@ -9,6 +9,11 @@ Variáveis de ambiente:
 - `GITHUB_REPO` - `seu-usuario/seu-repositorio`, para os botões de download funcionarem (passo 2).
 - `ICE_SERVERS` - servidores TURN (opcional).
 
+**No Render, configure também:** Settings > Health Check Path = `/health` (o Render reinicia o serviço se ele parar de responder).
+Plano grátis: o serviço **dorme após ~15 min sem acessos** e demora ~30-50 s para acordar. Isso é limite do plano, não defeito do código. Para evitar, use o plano pago ou um monitor (ex.: UptimeRobot) chamando `/health` a cada 10 min.
+
+**Sessões:** o login agora usa cookie `HttpOnly` + `Secure` + `SameSite=Lax` validado no servidor ("Manter conectado" = 30 dias; sem marcar = 12 h). Na primeira atualização, quem já tinha conta precisa entrar de novo uma vez (as contas e mensagens são mantidas).
+
 ## 2) Gerar os instaladores (sem instalar nada)
 1. Suba esta pasta inteira (com `.github`) para um repositório **público** no GitHub.
 2. Edite `config.json` e coloque o endereço do seu Render em `serverUrl`.
