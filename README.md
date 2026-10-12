@@ -9,8 +9,8 @@ Variáveis de ambiente:
 - `GITHUB_REPO` - `seu-usuario/seu-repositorio` se você publicar uma cópia do app em outro repositório. Neste projeto, a consulta ao GitHub Releases já usa `cortesdojean3-collab/meu-app-discords` por padrão.
 - `ICE_SERVERS` - servidores TURN (opcional).
 
-**No Render, configure também:** Settings > Health Check Path = `/health` (o Render reinicia o serviço se ele parar de responder).
-Plano grátis: o serviço **dorme após ~15 min sem acessos** e demora ~30-50 s para acordar. Isso é limite do plano, não defeito do código. Para evitar, use o plano pago ou um monitor (ex.: UptimeRobot) chamando `/health` a cada 10 min.
+**No Render, configure também:** Settings > Health Check Path = `/health` (o Render usa esta rota para verificar se a instância está saudável durante o deploy).
+Plano Free: o serviço suspende após 15 minutos sem tráfego de entrada, incluindo mensagens WebSocket, e leva cerca de um minuto para voltar quando recebe uma nova requisição. Esse tempo fora do ar é uma limitação da hospedagem. Um health check não corrige isso; o plano pago não suspende por inatividade.
 
 **Sessões:** o login agora usa cookie `HttpOnly` + `Secure` + `SameSite=Lax` validado no servidor ("Manter conectado" = 30 dias; sem marcar = 12 h). Na primeira atualização, quem já tinha conta precisa entrar de novo uma vez (as contas e mensagens são mantidas).
 
