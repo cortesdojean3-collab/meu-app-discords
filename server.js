@@ -100,9 +100,9 @@ async function api(req, res, u) {
   const s = sess(req);
   if (u === '/api/me') { if (!s) return json(res, 401, { erro: 'Sessão expirada.' }); renew(req, res, s); return json(res, 200, { uid: s.uid }); }
   if (!s) return json(res, 401, { erro: 'Sessão expirada.' });
-  if (u === '/api/logout' && req.method === 'POST') { delete data.sessions[s.k]; await flushAll(); C.forEach(c => { if (c.sh === s.k) try { c.ws.close(4001); } catch (e) {} }); setCookie(req, res, '', false, true); return json(res, 200, {}); }
+  if (u === '/api/logout' && req.method === 'POST') { const session=data.sessions[s.k]; delete data.sessions[s.k]; try { await flushAll(); } catch (error) { data.sessions[s.k]=session; return json(res,503,{erro:'Não foi possível encerrar a sessão. Tente novamente.'}); } C.forEach(c => { if (c.sh === s.k) try { c.ws.close(4001); } catch (e) {} }); setCookie(req, res, '', false, true); return json(res, 200, {}); }
   if (u === '/api/sessions') return json(res, 200, Object.entries(data.sessions).filter(([, v]) => v.uid === s.uid).map(([k, v]) => ({ ua: v.ua || 'Dispositivo', ts: v.ts, current: k === s.k })));
-  if (u === '/api/sessions/revoke-others' && req.method === 'POST') { await dropSessions(s.uid, s.k); return json(res, 200, {}); }
+  if (u === '/api/sessions/revoke-others' && req.method === 'POST') { try { await dropSessions(s.uid, s.k); return json(res, 200, {}); } catch (error) { return json(res,503,{erro:'Não foi possível encerrar as outras sessões. Tente novamente.'}); } }
   if (u === '/api/delete' && req.method === 'POST') {
     const b = await readJson(req), me = Object.entries(data.users).find(([, v]) => v.uid === s.uid);
     if (!me || !crypto.timingSafeEqual(Buffer.from(await scrypt(String(b.pass || ''), me[1].salt)), Buffer.from(me[1].hash))) return json(res, 401, { erro: 'Senha incorreta.' });
@@ -193,6 +193,7 @@ function serve(res, file) {
 function serveApp(res,file){fs.readFile(file,'utf8',(e,html)=>{if(e)return serve(res,file);const body=html.replaceAll('__PAPO_BUILD_ID__',BUILD_ID);res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Length':Buffer.byteLength(body),'Cache-Control':'no-store'});res.end(body)})}
 const srv = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Frame-Options','DENY'); res.setHeader('Content-Security-Policy',"frame-ancestors 'none'"); res.setHeader('Permissions-Policy','camera=(self), microphone=(self), display-capture=(self)');
   try {
     let u; try { u = decodeURIComponent(req.url.split('?')[0]); } catch (e) { res.writeHead(400); return res.end(); }
     if (u.startsWith('/api/')) { if (u === '/api/downloads') return json(res, 200, await avail()); if (u === '/api/version') { res.setHeader('Cache-Control','no-store'); return json(res,200,{version:APP_VERSION,build:BUILD_ID}); } return await api(req, res, u); }
@@ -213,14 +214,14 @@ const srv = http.createServer(async (req, res) => {
       }
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Instalador ainda nao publicado.');
     }
-    const base = path.join(__dirname, 'public'), f = path.normalize(path.join(base, u));
-    if (!f.startsWith(base)) { res.writeHead(403); return res.end(); }
+    const base = path.resolve(__dirname, 'public'), f = path.resolve(base, '.' + u), rel = path.relative(base, f);
+    if (rel.startsWith('..'+path.sep) || rel === '..' || path.isAbsolute(rel)) { res.writeHead(403); return res.end(); }
     serve(res, f);
   } catch (e) { log('error', 'http', 'erro na rota', { rota: req.url.split('?')[0], m: e.message }); if (!res.headersSent) json(res, 500, { erro: 'Erro interno.' }); else res.end(); }
 });
 srv.keepAliveTimeout = 120000; srv.headersTimeout = 125000; srv.requestTimeout = 0;
 /* ---------- websocket ---------- */
-const wss = new WebSocketServer({ noServer: true, maxPayload: 262144 }), C = new Map(), recent = new Map(), lastTyping = new Map();
+const wss = new WebSocketServer({ noServer: true, maxPayload: 262144 }), C = new Map(), recent = new Map(), pendingMessages = new Map(), lastTyping = new Map();
 srv.on('upgrade', (req, sock, head) => {
   sock.on('error', () => {});
   const s = req.url.split('?')[0] === '/ws' && sameOrigin(req) ? sess(req) : null;
@@ -246,6 +247,7 @@ wss.on('connection', ws => {
   ws.on('close', () => { if (C.get(c.peer) === c) { C.delete(c.peer); peers(); } });
 });
 async function handle(c, ws, m) {
+  const ack=(ok,erro)=>{if(typeof m.rid==='string'&&m.rid.length<=80)ws.send(JSON.stringify({t:'ack',rid:m.rid,ok,...(erro?{erro}:{})}))};
   const chan = /^msgs-(geral|jogos|memes)$/;
   if (m.t === 'pres') { c.pres = cleanPres(m.p, c.uid); peers(); }
   else if (m.t === 'emit') { const payload=m.data, d=payload&&typeof payload.to==='string'&&payload.to.length<=32?C.get(payload.to):null; const sig=payload&&((payload.k==='c'&&payload.c&&typeof payload.c.candidate==='string'&&payload.c.candidate.length<=8192)||(payload.k==='d'&&typeof payload.id==='string'&&/^[a-z0-9_-]{1,32}$/i.test(payload.id)&&Number.isInteger(payload.n)&&payload.n>0&&payload.n<=64&&Number.isInteger(payload.i)&&payload.i>=0&&payload.i<payload.n&&typeof payload.s==='string'&&payload.s.length<=2400)); if(m.topic==='sig'&&sig&&d&&c.pres.vc&&d.pres.vc===c.pres.vc)d.ws.send(JSON.stringify({t:'emit',topic:'sig',data:payload,peer:c.peer})); }
@@ -260,19 +262,22 @@ async function handle(c, ws, m) {
   else if (m.t === 'sub') { ws.send(JSON.stringify({ t: 'hist', c: m.c, items: m.c === 'profiles' ? Object.entries(data.profiles).map(([id, d]) => ({ id, d })) : chan.test(m.c) ? (data.msgs[m.c] || []).slice(-100) : [] })); }
   else if (m.t === 'add' && chan.test(m.c) && m.d && typeof m.d.text === 'string' && m.d.text.trim()) {
     const cid = String(m.d.cid || ''), rs = recent.get(c.uid) || recent.set(c.uid, new Set()).get(c.uid);
-    if (cid) { if (rs.has(cid)) return; rs.add(cid); if (rs.size > 200) rs.delete(rs.values().next().value); }
+    const pendingKey=cid?c.uid+':'+cid:'';
+    if (cid) { if (rs.has(cid)) { ack(true); return; } if(pendingMessages.has(pendingKey)){const saved=await pendingMessages.get(pendingKey);ack(saved,saved?undefined:'Não foi possível salvar os dados. Tente novamente.');return;} }
+    let resolvePending; if(cid)pendingMessages.set(pendingKey,new Promise(resolve=>resolvePending=resolve));
+    let saved=false;
     const it = { id: Date.now().toString(36) + crypto.randomBytes(3).toString('hex'), d: { by: c.uid, text: m.d.text.trim().slice(0, 1500), ts: Date.now() } };
     if (m.d.r && findMsg(m.c, String(m.d.r))) it.d.r = String(m.d.r);
-    const a = data.msgs[m.c] = data.msgs[m.c] || []; a.push(it); const dropped=a.length>500?a.shift():null; try { await flushAll(); } catch(e) { a.pop(); if(dropped)a.unshift(dropped); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
+    const a = data.msgs[m.c] = data.msgs[m.c] || []; a.push(it); const dropped=a.length>500?a.shift():null; try { await flushAll(); if(cid){rs.add(cid);if(rs.size>200)rs.delete(rs.values().next().value)} bc({ t: 'doc', c: m.c, id: it.id, d: it.d }); saved=true; ack(true); } catch(e) { a.pop(); if(dropped)a.unshift(dropped); throw e; } finally { if(cid){pendingMessages.delete(pendingKey);resolvePending(saved)} }
   } else if (m.t === 'edit' && chan.test(m.c)) {
     const it = findMsg(m.c, String(m.id)); if (!it || it.d.by !== c.uid || typeof m.text !== 'string' || !m.text.trim()) return;
-    const old=JSON.stringify(it.d); it.d.text = m.text.trim().slice(0, 1500); it.d.edited = true; try { await flushAll(); } catch(e) { it.d=JSON.parse(old); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
+    const old=JSON.stringify(it.d); it.d.text = m.text.trim().slice(0, 1500); it.d.edited = true; try { await flushAll(); } catch(e) { it.d=JSON.parse(old); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d }); ack(true);
   } else if (m.t === 'del' && chan.test(m.c)) {
     const it = findMsg(m.c, String(m.id)); if (!it || it.d.by !== c.uid) return;
-    const items=data.msgs[m.c], index=items.indexOf(it); data.msgs[m.c] = items.filter(x => x !== it); try { await flushAll(); } catch(e) { data.msgs[m.c].splice(index,0,it); throw e; } bc({ t: 'del', c: m.c, id: it.id });
+    const items=data.msgs[m.c], index=items.indexOf(it); data.msgs[m.c] = items.filter(x => x !== it); try { await flushAll(); } catch(e) { data.msgs[m.c].splice(index,0,it); throw e; } bc({ t: 'del', c: m.c, id: it.id }); ack(true);
   } else if (m.t === 'react' && chan.test(m.c) && EMOJI.includes(m.e)) {
     const it = findMsg(m.c, String(m.id)); if (!it) return; const re = it.d.re = it.d.re || {}, a = re[m.e] = re[m.e] || [], i = a.indexOf(c.uid);
-    const old=JSON.stringify(it.d); if (i < 0) { if (a.length < 50) a.push(c.uid); } else a.splice(i, 1); if (!a.length) delete re[m.e]; try { await flushAll(); } catch(e) { it.d=JSON.parse(old); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d });
+    const old=JSON.stringify(it.d); if (i < 0) { if (a.length < 50) a.push(c.uid); } else a.splice(i, 1); if (!a.length) delete re[m.e]; try { await flushAll(); } catch(e) { it.d=JSON.parse(old); throw e; } bc({ t: 'doc', c: m.c, id: it.id, d: it.d }); ack(true);
   } else if (m.t === 'typing' && chan.test(m.c)) {
     const k = c.uid + m.c; if (Date.now() - (lastTyping.get(k) || 0) < 1500) return; lastTyping.set(k, Date.now());
     const s = JSON.stringify({ t: 'typing', c: m.c, uid: c.uid }); C.forEach(o => o !== c && o.ws.readyState === 1 && o.ws.send(s));

@@ -147,7 +147,7 @@ const room={handlers:{},pl:[],pfn:[],emit(t,d){send({t:'emit',topic:t,data:d});r
  presence(p){Object.assign(pres,p);send({t:'pres',p:pres});return Promise.resolve()},peers(){return this.pl},onPeers(f){this.pfn.push(f)}};
 const db={collection(n){const qq={ord:null,lim:0},o={orderBy(f,d){qq.ord=d;return o},limit(l){qq.lim=l;return o},
  onSnapshot(fn){(subs[n]=subs[n]||[]).push({fn,qq});send({t:'sub',c:n});if(store[n])fire(n);return()=>{subs[n]=subs[n].filter(x=>x.fn!==fn)}},
- add(d){send({t:'add',c:n,d});return Promise.resolve()}};return o},
+ add(d){return request({t:'add',c:n,d})}};return o},
   doc(p){const[c]=p.split('/');return{set(d){return request({t:'set',c,d})}}}};
 function request(o){if(!ws||ws.readyState!==1)return Promise.reject(new Error('Sem conexão com o servidor.'));const rid='r'+Date.now().toString(36)+(++ackSeq).toString(36);return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pendingAcks.delete(rid);reject(new Error('O servidor não confirmou o salvamento.'))},12000);pendingAcks.set(rid,{resolve,reject,timer});ws.send(JSON.stringify({...o,rid}))})}
 function rejectAcks(){for(const [id,p] of pendingAcks){clearTimeout(p.timer);p.reject(new Error('A conexão caiu antes da confirmação do servidor.'));pendingAcks.delete(id)}}
@@ -211,17 +211,17 @@ function renderMsgs(s){const box=$('#msgs'),stick=box.dataset.new||box.scrollHei
   if(x.r&&byId[x.r]){const rp=document.createElement('div');rp.className='rp';rp.textContent='↩ '+pr(byId[x.r].by).name+': '+byId[x.r].text.slice(0,60);b.append(rp)}
   const h=document.createElement('div'),n=document.createElement('b');n.textContent=p.name;n.style.color=p.color||'';const t=document.createElement('small');t.textContent=new Date(x.ts).toLocaleString('pt-BR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})+(x.edited?' (editada)':'');h.append(n,t);
   const tx=document.createElement('div');tx.className='t';tx.textContent=x.text;b.append(h,tx);
-  const rr=document.createElement('div');rr.className='rx';Object.entries(x.re||{}).forEach(([e,u])=>{const bt=document.createElement('button');bt.className='rb'+(u.includes(myId)?' me':'');bt.textContent=e+' '+u.length;bt.onclick=()=>send({t:'react',c:'msgs-'+cur,id:d.id,e});rr.append(bt)});b.append(rr);
+  const rr=document.createElement('div');rr.className='rx';Object.entries(x.re||{}).forEach(([e,u])=>{const bt=document.createElement('button');bt.className='rb'+(u.includes(myId)?' me':'');bt.textContent=e+' '+u.length;bt.onclick=async()=>{try{await request({t:'react',c:'msgs-'+cur,id:d.id,e})}catch(err){ban(err.message)}};rr.append(bt)});b.append(rr);
   const act=document.createElement('div');act.className='act';const A=(name,tt,fn)=>{const bt=document.createElement('button');bt.className='icon-only';setIconButton(bt,name,tt);bt.onclick=fn;act.append(bt)};
-  A('reply','Responder',()=>{replyTo=d.id;drawReply(x);$('#cin').focus()});['👍','❤️','😂','🎉'].forEach(e=>{const bt=document.createElement('button');bt.className='rb';bt.textContent=e;bt.title='Reagir';bt.setAttribute('aria-label','Reagir com '+e);bt.onclick=()=>send({t:'react',c:'msgs-'+cur,id:d.id,e});act.append(bt)});
-  if(x.by===myId){A('edit','Editar',()=>{const v=prompt('Editar mensagem',x.text);if(v&&v.trim()&&v!==x.text)send({t:'edit',c:'msgs-'+cur,id:d.id,text:v.trim()})});A('trash','Excluir',()=>{if(confirm('Excluir esta mensagem?'))send({t:'del',c:'msgs-'+cur,id:d.id})})}
+  A('reply','Responder',()=>{replyTo=d.id;drawReply(x);$('#cin').focus()});['👍','❤️','😂','🎉'].forEach(e=>{const bt=document.createElement('button');bt.className='rb';bt.textContent=e;bt.title='Reagir';bt.setAttribute('aria-label','Reagir com '+e);bt.onclick=async()=>{try{await request({t:'react',c:'msgs-'+cur,id:d.id,e})}catch(err){ban(err.message)}};act.append(bt)});
+  if(x.by===myId){A('edit','Editar',async()=>{const v=prompt('Editar mensagem',x.text);if(v&&v.trim()&&v!==x.text)try{await request({t:'edit',c:'msgs-'+cur,id:d.id,text:v.trim()})}catch(e){ban(e.message)}});A('trash','Excluir',async()=>{if(confirm('Excluir esta mensagem?'))try{await request({t:'del',c:'msgs-'+cur,id:d.id})}catch(e){ban(e.message)}})}
   r.dataset.messageId=d.id;r.dataset.author=x.by;r.dataset.text=x.text;r.append(avEl(p),b,act);box.append(r)});if(stick){box.scrollTop=box.scrollHeight;delete box.dataset.new}}
 function openCh(id){cur=id;unread[id]=0;replyTo=null;drawReply();const c=CH.find(x=>x.id===id),v=c.t==='v';
  if(v)setInlineLabel($('#ttl'),'volume',c.n);else $('#ttl').textContent='# '+c.n;$('#msgs').style.display=v?'none':'block';$('#cform').style.display=v?'none':'block';$('#stage').style.display=v?'flex':'none';$('#srch').style.display=v?'none':'block';$('#bleave').style.display=myVc?'inline-flex':'none';drawChs();
  if(unsub){unsub();unsub=null}
  if(!v){$('#msgs').dataset.new='1';unsub=db.collection('msgs-'+id).orderBy('ts','desc').limit(80).onSnapshot(renderMsgs);drawTyping()}}
 $('#srch').oninput=()=>fire('msgs-'+cur);
-$('#cin').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&e.target.value.trim()){db.collection('msgs-'+cur).add({text:e.target.value.trim(),r:replyTo||undefined,cid:crypto.randomUUID()});e.target.value='';replyTo=null;drawReply()}});
+$('#cin').addEventListener('keydown',async e=>{if(e.key==='Enter'&&!e.shiftKey&&e.target.value.trim()){e.preventDefault();const input=e.target,text=input.value.trim(),reply=replyTo;try{await db.collection('msgs-'+cur).add({text,r:reply||undefined,cid:crypto.randomUUID()});input.value='';replyTo=null;drawReply()}catch(err){ban(err.message)}}});
 let lt=0;$('#cin').addEventListener('input',()=>{if(Date.now()-lt>2500){lt=Date.now();send({t:'typing',c:'msgs-'+cur})}});
 /* ---------- perfil ---------- */
 function openProfile(first){const p=pr(myId);draft={avatar:p.avatar||''};$('#pname').value=P[myId]?p.name:'';$('#pst').value=p.status||'';$('#pcol').value=p.color||'#7c3aed';paintPav();$('#m1').style.display='grid';$('#pcancel').style.display=first?'none':'inline-block'}
@@ -230,7 +230,7 @@ $('#bp').onclick=()=>openProfile(false);$('#pcancel').onclick=()=>{$('#m1').styl
 $('#pfile').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=128;const s=Math.min(im.width,im.height);c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,128,128);draft.avatar=c.toDataURL('image/jpeg',.85);paintPav()};im.src=URL.createObjectURL(f)};
 $('#psave').onclick=()=>{db.doc('profiles/'+myId).set({name:($('#pname').value||'Sem nome').trim(),status:$('#pst').value.trim(),color:$('#pcol').value,avatar:draft.avatar||''});$('#m1').style.display='none';draft=null};
 $('#plogout').onclick=logout;
-function logout(){fetch('/api/logout',{method:'POST',credentials:'same-origin'}).catch(()=>{}).finally(()=>{localStorage.removeItem('uid');location.reload()})}
+async function logout(){try{const r=await fetch('/api/logout',{method:'POST',credentials:'same-origin'});if(!r.ok)throw new Error('Não foi possível sair agora. Tente novamente.');localStorage.removeItem('uid');location.reload()}catch(e){ban(e.message||'Falha de conexão ao sair da conta.')}}
 /* ---------- microfone: ganho, limitador, porta de voz ---------- */
 const micC=()=>({audio:{deviceId:cfg.mic?{exact:cfg.mic}:undefined,echoCancellation:cfg.eco,noiseSuppression:cfg.ns,autoGainControl:cfg.agc}});
 function buildMic(raw){const src=AC.createMediaStreamSource(raw),g=AC.createGain(),gate=AC.createGain(),lim=AC.createDynamicsCompressor(),an=AC.createAnalyser(),dest=AC.createMediaStreamDestination();
@@ -394,7 +394,7 @@ let lastAct=Date.now();['mousemove','keydown','click','touchstart'].forEach(ev=>
 setInterval(()=>{if(!autoAway&&userSt==='online'&&Date.now()-lastAct>3e5){autoAway=true;room.presence({st:'away'})}},30000);
 $('#sEdit').onclick=()=>{closeSet();openProfile(false)};$('#sLogout').onclick=()=>{if(confirm('Sair da conta neste dispositivo?'))logout()};
 async function loadSess(){try{const r=await fetch('/api/sessions',{credentials:'same-origin'});if(!r.ok)return;const b=$('#sess');b.textContent='';(await r.json()).forEach(s=>{const d=document.createElement('div');d.textContent=(s.current?'● Este dispositivo — ':'')+s.ua.slice(0,60)+' · '+new Date(s.ts).toLocaleDateString('pt-BR');b.append(d)})}catch(e){}}
-$('#sOut').onclick=async()=>{if(confirm('Sair de todos os outros dispositivos?')){await fetch('/api/sessions/revoke-others',{method:'POST',credentials:'same-origin'});loadSess()}};
+$('#sOut').onclick=async()=>{if(confirm('Sair de todos os outros dispositivos?')){try{const r=await fetch('/api/sessions/revoke-others',{method:'POST',credentials:'same-origin'});if(!r.ok)throw new Error('Não foi possível encerrar as outras sessões.');await loadSess()}catch(e){ban(e.message||'Falha de conexão.')}}};
 $('#sDel').onclick=async()=>{const p=prompt('Para excluir sua conta para sempre, digite sua senha:');if(!p||!confirm('Tem certeza? Isso apaga sua conta, perfil e mensagens e não dá para desfazer.'))return;
  const r=await fetch('/api/delete',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({pass:p})});if(r.ok){localStorage.clear();location.reload()}else ban((await r.json().catch(()=>({}))).erro||'Não consegui excluir a conta.')};
 /* ---------- login / cadastro ---------- */
