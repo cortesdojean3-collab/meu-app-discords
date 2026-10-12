@@ -5,9 +5,11 @@ const DEFAULT_REPO = 'cortesdojean3-collab/meu-app-discords';
 const configuredRepo = process.env.GITHUB_REPO || DEFAULT_REPO;
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(configuredRepo) ? configuredRepo : DEFAULT_REPO;
 const DB = process.env.DATA_FILE || path.join(__dirname, 'data.json'), START = Date.now();
+const APP_VERSION = require('./package.json').version;
+const BUILD_ID = (process.env.RENDER_GIT_COMMIT || process.env.GITHUB_SHA || crypto.createHash('sha256').update(['server.js','main.js','preload.js','package.json','public/index.html','public/app.html','public/papo-enhancements.js','public/papo-intro.css','public/papo-intro.js','public/kombi.svg'].map(f=>fs.readFileSync(path.join(__dirname,f))).join('\0')).digest('hex')).slice(0,12);
 const FILES = { win: 'Papo-win.exe', mac: 'Papo-mac.dmg', linux: 'Papo-linux.AppImage' };
 const MIME = { '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
-const VC = ['voz1', 'voz2'], EMOJI = ['👍', '❤️', '😂', '🎉', '😮'], DAY = 864e5, TTL_SHORT = 12 * 36e5, TTL_LONG = 30 * DAY;
+const VC = ['voz1', 'voz2'], EMOJI = ['🁍', '❤️', '🈂', '𞾉', '🈮'], DAY = 864e5, TTL_SHORT = 12 * 36e5, TTL_LONG = 30 * DAY;
 const log = (l, ctx, msg, x) => (l === 'error' ? console.error : console.log)(JSON.stringify({ t: new Date().toISOString(), l, ctx, msg, ...x }));
 const TEMP = /ECONNRESET|EPIPE|ETIMEDOUT|ERR_STREAM|socket hang up|ECONNABORTED/;
 process.on('uncaughtException', e => { if (TEMP.test((e.code || '') + e.message)) return log('warn', 'proc', 'erro de rede ignorado', { m: e.message }); log('error', 'proc', 'erro fatal', { m: e.message, s: (e.stack || '').split('\n')[1] }); shutdown('fatal', 1); });
@@ -139,6 +141,14 @@ function latestRelease() {
   });
   return releaseCache.pending;
 }
+function iceConfig(req,res){
+  res.setHeader('Cache-Control','private, no-store');
+  const servers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}],s=sess(req);
+  const urls=(process.env.TURN_URLS||'').split(',').map(x=>x.trim()).filter(x=>/^turns?:[^\s,]+$/i.test(x));
+  const secret=process.env.TURN_SECRET||'';
+  if(s){renew(req,res,s);if(urls.length&&secret){const username=`${Math.floor(Date.now()/1000)+3600}:${s.uid}`;const credential=crypto.createHmac('sha1',secret).update(username).digest('base64');servers.push({urls,username,credential})}}
+  return json(res,200,servers);
+}
 let historyCache = { at: 0, value: null, pending: null };
 function releaseHistory() {
   if (historyCache.pending) return historyCache.pending;
@@ -179,19 +189,20 @@ function serve(res, file) {
     res.writeHead(200, h); fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
   });
 }
+function serveApp(res,file){fs.readFile(file,'utf8',(e,html)=>{if(e)return serve(res,file);const body=html.replaceAll('__PAPO_BUILD_ID__',BUILD_ID);res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Length':Buffer.byteLength(body),'Cache-Control':'no-store'});res.end(body)})}
 const srv = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin');
   try {
     let u; try { u = decodeURIComponent(req.url.split('?')[0]); } catch (e) { res.writeHead(400); return res.end(); }
-    if (u.startsWith('/api/')) { if (u === '/api/downloads') return json(res, 200, await avail()); return await api(req, res, u); }
+    if (u.startsWith('/api/')) { if (u === '/api/downloads') return json(res, 200, await avail()); if (u === '/api/version') { res.setHeader('Cache-Control','no-store'); return json(res,200,{version:APP_VERSION,build:BUILD_ID}); } return await api(req, res, u); }
     if (u === '/health') {
       let ok = true; if (pool) { try { await Promise.race([pool.query('select 1'), new Promise((_, j) => setTimeout(() => j(new Error('timeout')), 3000))]); } catch (e) { ok = false; } }
       return json(res, ok ? 200 : 503, { ok, uptime: Math.round((Date.now() - START) / 1000), rssMB: Math.round(process.memoryUsage().rss / 1048576), clientes: C.size, usuarios: Object.keys(data.users).length, banco: pool ? 'postgres' : 'arquivo', persistente: !!pool, alertaPersistencia: pool ? null : 'DATABASE_URL não configurada; o arquivo local pode ser perdido em um redeploy.', github: REPO, downloads: fs.existsSync(path.join(__dirname, 'downloads')) ? fs.readdirSync(path.join(__dirname, 'downloads')) : [] });
     }
     if (u === '/') return serve(res, path.join(__dirname, 'public/index.html'));
-    if (u === '/app') return serve(res, path.join(__dirname, 'public/app.html'));
+    if (u === '/app') return serveApp(res, path.join(__dirname, 'public/app.html'));
     if (u === '/downloads' || u === '/downloads/') return serve(res, path.join(__dirname, 'public/downloads.html'));
-    if (u === '/ice') { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(process.env.ICE_SERVERS || '[{"urls":["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]'); }
+    if (u === '/ice') { if(!sameOrigin(req))return json(res,403,{erro:'Origem não permitida.'}); return iceConfig(req,res); }
     if (u.startsWith('/downloads/')) {
       const n = path.basename(u);
       if (local(n)) return serve(res, path.join(__dirname, 'downloads', n));
@@ -236,7 +247,7 @@ wss.on('connection', ws => {
 function handle(c, ws, m) {
   const chan = /^msgs-(geral|jogos|memes)$/;
   if (m.t === 'pres') { c.pres = cleanPres(m.p, c.uid); peers(); }
-  else if (m.t === 'emit') { const d = m.data && C.get(m.data.to); if (m.topic === 'sig' && d && c.pres.vc && d.pres.vc === c.pres.vc) d.ws.send(JSON.stringify({ t: 'emit', topic: 'sig', data: m.data, peer: c.peer })); }
+  else if (m.t === 'emit') { const payload=m.data, d=payload&&typeof payload.to==='string'&&payload.to.length<=32?C.get(payload.to):null; const sig=payload&&((payload.k==='c'&&payload.c&&typeof payload.c.candidate==='string'&&payload.c.candidate.length<=8192)||(payload.k==='d'&&typeof payload.id==='string'&&/^[a-z0-9_-]{1,32}$/i.test(payload.id)&&Number.isInteger(payload.n)&&payload.n>0&&payload.n<=64&&Number.isInteger(payload.i)&&payload.i>=0&&payload.i<payload.n&&typeof payload.s==='string'&&payload.s.length<=2400)); if(m.topic==='sig'&&sig&&d&&c.pres.vc&&d.pres.vc===c.pres.vc)d.ws.send(JSON.stringify({t:'emit',topic:'sig',data:payload,peer:c.peer})); }
   else if (m.t === 'gift') {
     const target = String(m.to || '');
     if (!c.pres.vc || target === c.uid || Date.now() - c.giftAt < 1000) return;
