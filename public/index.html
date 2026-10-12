@@ -1,13 +1,44 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Papo - baixe o app</title><link rel="icon" href="/logo.svg"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#7c3aed"><link rel="stylesheet" href="/papo-intro.css"><script>try{const p=JSON.parse(localStorage.getItem('papo.extras.v1')||'{}'),reduced=p.reduceMotion===true||matchMedia('(prefers-reduced-motion: reduce)').matches;if(p.kombiIntro!==false&&!reduced&&!sessionStorage.getItem('papo.intro.seen')){sessionStorage.setItem('papo.intro.seen','1');document.documentElement.classList.add('papo-intro-pending');setTimeout(()=>{document.getElementById('papoMotorAudio')?.pause();document.documentElement.classList.remove('papo-intro-pending');document.getElementById('papo-intro')?.remove()},5600)}}catch(error){console.warn('[papo] Não consegui preparar a abertura:',error)}</script>
+<html lang="pt-BR" data-papo-entry="landing"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papo - baixe o app</title><link rel="icon" href="/logo.svg"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#7c3aed"><link rel="stylesheet" href="/papo-intro.css"><script>
+(() => {
+  const root = document.documentElement, entry = root.dataset.papoEntry || 'landing';
+  const visitKey = 'papo.intro.' + entry + '.seen.v2';
+  let preferences = {}, seen = false;
+  try { preferences = JSON.parse(localStorage.getItem('papo.extras.v1') || '{}') || {}; } catch {}
+  try { seen = sessionStorage.getItem(visitKey) === '1'; } catch {}
+  const reduced = preferences.reduceMotion === true || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const animate = preferences.kombiIntro !== false && !seen && !reduced;
+  const startup = window.PapoStartup = {
+    entry, animate, reduced, active: entry === 'app' || animate, sound: preferences.introSound !== false,
+    ready: entry !== 'app', outcome: entry === 'app' ? null : 'landing',
+    markSeen() { try { sessionStorage.setItem(visitKey, '1'); } catch {} },
+    markReady(outcome) {
+      this.ready = true; this.outcome = outcome;
+      document.dispatchEvent(new Event('papo:startup-ready'));
+      if (this.failed && !this.mounted) this.fallback();
+    },
+    fallback() {
+      if (this.mounted) return;
+      this.failed = true;
+      document.getElementById('papoMotorAudio')?.pause();
+      if (this.ready) { root.classList.remove('papo-intro-pending'); document.getElementById('papo-intro')?.remove(); return; }
+      root.dataset.papoMotion = 'reduced';
+      const message = document.getElementById('papoIntroStatus'), skip = document.querySelector('[data-intro-skip]');
+      if (message) message.textContent = 'Não conseguimos iniciar o Papo. Recarregue para tentar de novo.';
+      if (skip) { skip.textContent = 'Recarregar Papo'; skip.onclick = () => location.reload(); }
+    }
+  };
+  root.dataset.papoMotion = animate ? 'full' : reduced ? 'reduced' : 'quiet';
+  if (startup.active) { root.classList.add('papo-intro-pending'); startup.guard = setTimeout(() => startup.fallback(), 10000); }
+})();
+</script>
 <style id="papo-intro-critical">
-#papo-intro{display:none}
+#papo-intro{display:none;position:fixed;inset:0;z-index:1000;overflow:hidden;background:#100d1a;color:#faf8ff}
 html.papo-intro-pending,html.papo-intro-pending body{background:#100d1a;overflow:hidden}
-html.papo-intro-pending body>*:not(#papo-intro){visibility:hidden!important;opacity:0!important}
-html.papo-intro-pending.papo-intro-reveal body>*:not(#papo-intro){visibility:visible!important;opacity:1!important}
-html.papo-intro-pending #papo-intro{display:grid!important;position:fixed;inset:0;z-index:1000;place-items:center;background:radial-gradient(ellipse at 50% 42%,#382365,#100d1a 80%);color:#faf8ff}
-#papo-intro .intro-content{position:relative;width:100%;height:100%;overflow:hidden;text-align:center}
+html.papo-intro-pending body>*:not(#papo-intro){visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+html.papo-intro-pending.papo-intro-reveal body>*:not(#papo-intro){visibility:visible!important;opacity:1!important;pointer-events:auto!important}
+html.papo-intro-pending #papo-intro{display:block!important}
 #papo-intro.papo-intro-out{opacity:0;pointer-events:none}
 </style>
 <style>
@@ -21,7 +52,19 @@ a.b{display:block;padding:18px 16px;border-radius:12px;background:#ffffff14;bord
 a.b small{display:block;font-weight:400;color:#c4b5fd;margin-top:2px}a.b .papo-icon{width:18px;height:18px;vertical-align:-4px;margin-right:5px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}ul li{display:flex;gap:7px;align-items:center}ul li svg{width:18px;height:18px;fill:none;stroke:#c4b5fd;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 a.b.off{opacity:.45;cursor:not-allowed}.hint{font-size:13px;color:#ddd6fe}a.b:hover{background:#ffffff22}a.b.rec{background:#7c3aed;border-color:#a78bfa;box-shadow:0 8px 28px #7c3aed66}
 a.w{color:#c4b5fd}ul{list-style:none;padding:0;display:flex;gap:20px;flex-wrap:wrap;justify-content:center;color:#ddd6fe;font-size:14px}
-</style></head><body><div id="papo-intro" role="dialog" aria-modal="true" aria-label="Abertura do Papo"><div class="intro-content"><div class="intro-brand">Papo</div><div class="intro-tagline">Toda boa conversa começa em algum lugar.</div><div class="intro-story" aria-live="polite"><p>Estradas longas. Novas paradas.</p><p>Em cada parada, uma conversa e uma amizade.</p><p>As luzes se conectaram. A Kombi chegou ao Papo.</p></div><div class="intro-route" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="intro-stop stop-one" aria-hidden="true"><span class="person"><i></i></span><span class="chat-bubble">Oi!</span></div><div class="intro-stop stop-two" aria-hidden="true"><span class="person"><i></i></span><span class="chat-bubble">Vamos conversar?</span></div><div class="intro-stop stop-three" aria-hidden="true"><span class="person"><i></i></span><span class="chat-bubble">Chegamos!</span></div><div class="intro-final" aria-hidden="true"><img src="/logo.svg" alt=""><span>Conectados no</span><b>Papo</b></div><div class="intro-road"></div><div class="intro-van"><img src="/kombi.svg" alt="Kombi branca e roxa do Papo atravessando a tela"></div><audio id="papoMotorAudio" preload="auto" src="/papo-motor.wav"></audio><div class="intro-actions"><button type="button" data-intro-sound aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l5 4V6l-5 4H3Zm13-1a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12"/></svg><span>Ativar som do motor</span></button><button type="button" data-intro-skip>Pular animação</button></div></div></div><main>
+</style></head><body><div id="papo-intro" role="dialog" aria-modal="true" aria-label="Papo está iniciando" aria-busy="true" tabindex="-1">
+<div class="intro-content">
+<div class="intro-atmosphere" aria-hidden="true"></div>
+<header class="intro-brand"><span class="intro-eyebrow">BOAS CONVERSAS, NOVOS CAMINHOS</span><h1 class="intro-wordmark">Papo<span aria-hidden="true">.</span></h1><p class="intro-tagline">Sua próxima conversa está a caminho.</p></header>
+<div class="intro-scene" role="img" aria-label="Uma Kombi branca e roxa atravessa uma estrada iluminada">
+<div class="intro-horizon" aria-hidden="true"></div><div class="intro-route" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="intro-road" aria-hidden="true"></div>
+<div class="intro-van" aria-hidden="true"><img src="/kombi.svg" alt="" width="320" height="150" fetchpriority="high"></div>
+</div>
+<div class="intro-loading"><p id="papoIntroStatus" role="status" aria-live="polite">Iniciando Papo…</p><div class="intro-progress" aria-hidden="true"><i></i></div></div>
+<audio id="papoMotorAudio" preload="auto" src="/papo-motor.wav"></audio>
+<div class="intro-actions"><button type="button" data-intro-sound aria-label="Ouvir motor" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l5 4V6l-5 4H3Zm13-1a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12"/></svg><span>Ouvir motor</span></button><button type="button" data-intro-skip>Pular abertura</button></div>
+</div>
+</div><main>
 <img class="logo" src="/logo.svg" alt="LD">
 <h1>Papo</h1><p class="s">Chat, chamadas de voz e compartilhamento de tela em alta resolução. Feito para jogar e conversar com os amigos.</p>
 <div class="dl">
@@ -43,5 +86,5 @@ const installerNames={win:'Papo-win.exe',mac:'Papo-mac.dmg',linux:'Papo-linux.Ap
 function isReleaseAsset(url){try{const parsed=new URL(url);return parsed.protocol==='https:'&&parsed.hostname==='github.com'&&/^\/[^/]+\/[^/]+\/releases\/download\/[^/]+\/[^/]+$/.test(parsed.pathname)}catch{return false}}
 function disableInstaller(key,message){const link=document.getElementById(key);link.classList.add('off');link.removeAttribute('href');link.querySelector('small').textContent=message;link.onclick=e=>e.preventDefault()}
 fetch('/api/downloads',{headers:{Accept:'application/json'},cache:'no-store'}).then(r=>{if(!r.ok)throw Error('downloads indisponíveis');return r.json()}).then(av=>{let any=false;['win','mac','linux'].forEach(key=>{const link=document.getElementById(key),asset=av.assets&&av.assets[key],direct=isReleaseAsset(asset&&asset.url),local=!asset&&av[key];if(direct||local){link.href=direct?asset.url:`/downloads/${encodeURIComponent(installerNames[key])}`;link.rel=direct?'noreferrer':'';link.classList.remove('off');link.onclick=null;any=true;return}disableInstaller(key,av.lookupOk?'ainda não publicado':'não foi possível verificar')});if(!any){const hint=document.getElementById('hint');hint.style.display='block';hint.textContent=av.lookupOk?'Os instaladores ainda não foram publicados. Use Instalar app ou veja as versões em Downloads.':'Não foi possível verificar os instaladores. Tente novamente pela página de Downloads.'}}).catch(()=>{['win','mac','linux'].forEach(key=>disableInstaller(key,'não foi possível verificar'));const hint=document.getElementById('hint');hint.style.display='block';hint.textContent='Não foi possível verificar os instaladores. Tente novamente pela página de Downloads.'});
-</script><script src="/papo-intro.js" defer></script></body></html>
+</script><script src="/papo-intro.js" defer onerror="window.PapoStartup?.fallback()"></script></body></html>
 

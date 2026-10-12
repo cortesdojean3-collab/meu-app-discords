@@ -11,7 +11,7 @@ const BUILD_FILES=['server.js','storage.js','migrations/001_persistent_data.sql'
 function localBuildId(){const hash=crypto.createHash('sha256');for(const file of BUILD_FILES)hash.update(file).update('\0').update(fs.readFileSync(path.join(__dirname,file)));return hash.digest('hex').slice(0,12)}
 const BUILD_ID=process.env.RENDER_GIT_COMMIT||process.env.GITHUB_SHA||localBuildId();
 const FILES = { win: 'Papo-win.exe', mac: 'Papo-mac.dmg', linux: 'Papo-linux.AppImage' };
-const MIME = { '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.js': 'text/javascript', '.wav': 'audio/wav', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.js': 'text/javascript', '.wav': 'audio/wav', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 const VC = ['voz1', 'voz2'], EMOJI = ['👍', '❤️', '😂', '🎉', '😮'], DAY = 864e5, TTL_SHORT = 12 * 36e5, TTL_LONG = 30 * DAY;
 const log = (l, ctx, msg, x) => (l === 'error' ? console.error : console.log)(JSON.stringify({ t: new Date().toISOString(), l, ctx, msg, ...x }));
 const TEMP = /ECONNRESET|EPIPE|ETIMEDOUT|ERR_STREAM|socket hang up|ECONNABORTED/;

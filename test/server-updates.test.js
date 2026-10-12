@@ -106,6 +106,14 @@ test('app page embeds the same build identity without a stale placeholder', asyn
   assert.ok(!html.includes('__PAPO_BUILD_ID__'));
 });
 
+test('intro stylesheet is served as CSS so nosniff does not block the opening animation', async () => {
+  const response = await fetch(`${base}/papo-intro.css`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /^text\/css\b/);
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.match(await response.text(), /@keyframes papo-drive/);
+});
+
 test('ICE endpoint gives no TURN credentials to anonymous visitors', async () => {
   const response = await fetch(`${base}/ice`);
   const servers = await response.json();
