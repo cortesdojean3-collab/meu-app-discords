@@ -22,11 +22,12 @@ a.w{color:#c4b5fd}ul{list-style:none;padding:0;display:flex;gap:20px;flex-wrap:w
 <a class="b" id="linux" href="/downloads/Papo-linux.AppImage" download>Baixar para Linux<small>Papo-linux.AppImage</small></a>
 </div>
 <ul><li>🎙️ Calls de voz</li><li>🖥️ Tela até 4K / 60fps</li><li>📷 Câmera</li><li>🎚️ Ajustes de áudio e vídeo</li></ul>
+<p class="hint" id="hint" style="display:none">Os instaladores ainda não foram publicados pelo administrador. Use <b>Instalar app</b> acima ou o navegador.</p>
 <p><a class="w" href="/app">Ou use direto no navegador</a></p>
 </main>
 <script>
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 let ev;addEventListener('beforeinstallprompt',e=>{e.preventDefault();ev=e});
 document.getElementById('pwa').onclick=e=>{e.preventDefault();ev?ev.prompt():alert('No Chrome ou Edge: abra /app e clique no ícone de instalar na barra de endereço (ou menu ⋮ > Instalar Papo). No celular: menu > Adicionar à tela inicial.')};
-[['win','/downloads/Papo-win.exe'],['mac','/downloads/Papo-mac.dmg'],['linux','/downloads/Papo-linux.AppImage']].forEach(([id,url])=>{const a=document.getElementById(id);fetch(url,{method:'HEAD'}).then(r=>{if(!r.ok)throw 0}).catch(()=>{a.classList.add('off');a.removeAttribute('href');a.querySelector('small').textContent='ainda não publicado pelo administrador';a.onclick=e=>e.preventDefault()})});
+fetch('/api/downloads').then(r=>r.json()).then(av=>{let any=false;['win','mac','linux'].forEach(k=>{const a=document.getElementById(k);if(av[k]){any=true;return}a.classList.add('off');a.removeAttribute('href');a.querySelector('small').textContent='ainda não publicado';a.onclick=e=>e.preventDefault()});if(!any)document.getElementById('hint').style.display='block'}).catch(()=>{});
 </script></body></html>

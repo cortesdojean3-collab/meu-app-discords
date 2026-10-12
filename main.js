@@ -21,6 +21,9 @@ function create() {
   win.webContents.on('before-input-event', (e, i) => { if (i.type === 'keyDown' && i.control && i.shift && i.key.toLowerCase() === 's') setup(); });
   open();
 }
+let pend = null;
+ipcMain.handle('picker-list', () => pend ? pend.src.map(s => ({ id: s.id, name: s.name, screen: s.id.startsWith('screen'), thumb: s.thumbnail.toDataURL(), icon: s.appIcon ? s.appIcon.toDataURL() : '' })) : []);
+ipcMain.on('picker-choose', (e, id) => pend && pend.finish(id));
 ipcMain.on('papo-save', (e, url) => {
   fs.writeFileSync(store(), JSON.stringify({ serverUrl: url }));
   if (url.startsWith('http:')) { app.relaunch(); app.exit(); } else { base = url; open(); }
@@ -29,11 +32,12 @@ app.whenReady().then(() => {
   const ses = session.defaultSession;
   ses.setPermissionRequestHandler((_, p, cb) => cb(['media', 'display-capture', 'fullscreen', 'notifications'].includes(p)));
   ses.setDisplayMediaRequestHandler(async (_, cb) => {
-    const src = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } });
-    const items = src.map(s => ({ label: (s.id.startsWith('screen') ? '🖥️ ' : '🪟 ') + s.name.slice(0, 60),
-      click: () => cb({ video: s, audio: process.platform === 'win32' ? 'loopback' : undefined }) }));
-    items.push({ type: 'separator' }, { label: 'Cancelar', click: () => cb({}) });
-    Menu.buildFromTemplate(items).popup({ window: win });
+    const src = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 180 }, fetchWindowIcons: true });
+    let done = false;
+    const pw = new BrowserWindow({ parent: win, modal: true, width: 920, height: 660, title: 'Compartilhar', autoHideMenuBar: true, backgroundColor: '#151225',
+      webPreferences: { preload: path.join(__dirname, 'picker-preload.js') } });
+    const finish = id => { if (done) return; done = true; pend = null; const v = src.find(x => x.id === id); try { pw.close(); } catch (e) {} cb(v ? { video: v, audio: process.platform === 'win32' ? 'loopback' : undefined } : {}); };
+    pend = { src, finish }; pw.on('closed', () => finish(null)); pw.loadFile(path.join(__dirname, 'picker.html'));
   });
   create();
 });

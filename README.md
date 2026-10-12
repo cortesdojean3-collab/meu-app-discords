@@ -1,34 +1,22 @@
-# Papo (chat + call + tela em HD)
+# Papo - chat, call e tela em HD
 
-Três partes: **servidor** (`server.js`), **site de download** (`/`) e **app de desktop** (Electron).
+## 1) Servidor (Render, Web Service, Node)
+Build: `npm install --omit=dev` | Start: `npm start`. Teste em `https://SEU-APP.onrender.com/health`.
 
-## 1) Hospedar o servidor/site
-Precisa de Node 18+. Em qualquer hospedagem com Node (Render, Railway, Fly.io, VPS):
-```
-npm install --omit=dev
-npm start
-```
-Variáveis opcionais: `PORT`, `SERVER_PASSWORD` (senha para entrar), `DATA_FILE` (onde salvar chat/perfis),
-`ICE_SERVERS` (JSON com servidores TURN, recomendado para amigos em redes difíceis).
-Use HTTPS (as hospedagens acima já dão), senão o navegador bloqueia microfone e tela.
-Obs.: em planos grátis o disco é apagado a cada deploy, então o histórico some. Use disco persistente se quiser mantê-lo.
+Variáveis de ambiente:
+- `DATABASE_URL` - banco Postgres para **guardar contas, perfis e mensagens para sempre** (recomendado). Crie um grátis em neon.tech ou supabase.com e cole a connection string. Sem isso, os dados ficam num arquivo que o plano grátis do Render apaga a cada atualização.
+- `INVITE_CODE` - código que os amigos precisam digitar para criar conta (evita estranhos).
+- `GITHUB_REPO` - `seu-usuario/seu-repositorio`, para os botões de download funcionarem (passo 2).
+- `ICE_SERVERS` - servidores TURN (opcional).
 
-## 2) Gerar os executáveis
-Edite `config.json` e coloque o endereço do seu site em `serverUrl`.
-**Jeito fácil (sem instalar nada):** suba esta pasta num repositório do GitHub, vá em Actions > "Gerar executaveis" > Run workflow.
-Ele gera Windows, macOS e Linux. Baixe os arquivos na aba do job.
-**Local:** `npm install && npm run dist` (gera só para o sistema em que você está).
-
-## 3) Publicar para os amigos
-Coloque os arquivos na pasta `downloads/` do servidor, com estes nomes:
-`Papo-win.exe`, `Papo-mac.dmg`, `Papo-linux.AppImage`.
-A página inicial do seu site já tem os botões de download.
-
-## Problemas comuns
-- **"Reconectando ao servidor":** abra `https://SEU-SITE/health`. Se mostrar `{"ok":true...}` o servidor está certo; se der erro, a hospedagem não roda Node.js. GitHub Pages, Netlify e Vercel **não servem** (só hospedam páginas estáticas, sem WebSocket). Use Render, Railway, Fly.io ou uma VPS.
-- **Download diz que o arquivo não existe:** os instaladores não vêm prontos. Gere-os (passo 2) e coloque na pasta `downloads/` com os nomes exatos. Abra `/health` para ver quais arquivos o servidor está enxergando. Enquanto isso, o botão "Instalar app" do site instala o Papo como programa direto do navegador (Chrome/Edge).
-- **App de desktop preso:** pressione Ctrl+Shift+S para trocar o endereço do servidor.
+## 2) Gerar os instaladores (sem instalar nada)
+1. Suba esta pasta inteira (com `.github`) para um repositório **público** no GitHub.
+2. Edite `config.json` e coloque o endereço do seu Render em `serverUrl`.
+3. No GitHub: aba **Actions** > "Gerar executaveis" > **Run workflow**. Leva uns 10 minutos.
+4. Quando terminar, aparece em **Releases** com `Papo-win.exe`, `Papo-mac.dmg` e `Papo-linux.AppImage`.
+5. No Render, defina `GITHUB_REPO` e reinicie. Os botões da página inicial passam a baixar de lá.
 
 ## Avisos
-- Windows pode mostrar "SmartScreen" e macOS "desenvolvedor não identificado", porque o app não é assinado. Basta "Mais informações > Executar mesmo assim" (Windows) ou clique direito > Abrir (Mac). Assinar exige certificado pago.
-- Testar sem gerar executável: `npm install && npm start`, abra `http://localhost:3000`.
+- Windows (SmartScreen) e macOS (clique direito > Abrir) mostram aviso porque o app não é assinado.
+- Não funciona em GitHub Pages, Netlify ou Vercel (precisam de servidor Node com WebSocket).
+- Sem acesso ao app de desktop? O botão **Instalar app** do site instala pelo Chrome/Edge.

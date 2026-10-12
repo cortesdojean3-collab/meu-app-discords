@@ -1,0 +1,9 @@
+<!DOCTYPE html><html lang="pt-BR"><meta charset="utf-8"><title>Compartilhar</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#151225;color:#ece9fa;font:14px system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+h2{margin:0;padding:16px 20px}#g{flex:1;overflow:auto;padding:0 20px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;align-content:start}
+.c{background:#221f3a;border:2px solid transparent;border-radius:14px;padding:8px;cursor:pointer;transition:all .15s}.c:hover{border-color:#a78bfa;transform:translateY(-2px)}
+.c img.t{width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;border-radius:8px;display:block}.n{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:12px}.n img{width:16px;height:16px}.n span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+p{margin:0;padding:10px 20px;color:#9a96b8;font-size:12px;border-top:1px solid #ffffff12}button{float:right;background:#3a3660;color:#fff;border:0;border-radius:8px;padding:6px 14px;cursor:pointer}</style>
+<body><h2>O que você quer compartilhar?</h2><div id="g"></div>
+<p><button onclick="picker.choose(null)">Cancelar</button>Janela que não aparece? Ela pode estar minimizada. No macOS, libere o Papo em Ajustes &gt; Privacidade &gt; Gravação de Tela.</p>
+<script>picker.list().then(l=>{const g=document.getElementById('g');l.sort((a,b)=>b.screen-a.screen).forEach(s=>{const c=document.createElement('div');c.className='c';const i=document.createElement('img');i.className='t';i.src=s.thumb;const n=document.createElement('div');n.className='n';if(s.icon){const k=document.createElement('img');k.src=s.icon;n.append(k)}const t=document.createElement('span');t.textContent=(s.screen?'🖥️ ':'')+s.name;n.append(t);c.append(i,n);c.onclick=()=>picker.choose(s.id);g.append(c)})})</script></body></html>
