@@ -7,9 +7,11 @@ const configuredRepo = process.env.GITHUB_REPO || DEFAULT_REPO;
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(configuredRepo) ? configuredRepo : DEFAULT_REPO;
 const DB = process.env.DATA_FILE || path.join(__dirname, 'data.json'), START = Date.now();
 const APP_VERSION = require('./package.json').version;
-const BUILD_ID = (process.env.RENDER_GIT_COMMIT || process.env.GITHUB_SHA || crypto.createHash('sha256').update(['server.js','storage.js','migrations/001_persistent_data.sql','main.js','preload.js','package.json','public/index.html','public/app.html','public/papo-enhancements.js','public/papo-intro.css','public/papo-intro.js','public/kombi.svg'].map(f=>fs.readFileSync(path.join(__dirname,f))).join('\0')).digest('hex')).slice(0,12);
+const BUILD_FILES=['server.js','storage.js','migrations/001_persistent_data.sql','main.js','screen-share-selection.js','preload.js','picker-preload.js','picker.html','package.json','public/index.html','public/app.html','public/papo-enhancements.js','public/papo-intro.css','public/papo-intro.js','public/papo-motor.wav','public/kombi.svg','public/sw.js','public/downloads.html'];
+function localBuildId(){const hash=crypto.createHash('sha256');for(const file of BUILD_FILES)hash.update(file).update('\0').update(fs.readFileSync(path.join(__dirname,file)));return hash.digest('hex').slice(0,12)}
+const BUILD_ID=process.env.RENDER_GIT_COMMIT||process.env.GITHUB_SHA||localBuildId();
 const FILES = { win: 'Papo-win.exe', mac: 'Papo-mac.dmg', linux: 'Papo-linux.AppImage' };
-const MIME = { '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.js': 'text/javascript', '.wav': 'audio/wav', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 const VC = ['voz1', 'voz2'], EMOJI = ['👍', '❤️', '😂', '🎉', '😮'], DAY = 864e5, TTL_SHORT = 12 * 36e5, TTL_LONG = 30 * DAY;
 const log = (l, ctx, msg, x) => (l === 'error' ? console.error : console.log)(JSON.stringify({ t: new Date().toISOString(), l, ctx, msg, ...x }));
 const TEMP = /ECONNRESET|EPIPE|ETIMEDOUT|ERR_STREAM|socket hang up|ECONNABORTED/;
@@ -190,7 +192,7 @@ function serve(res, file) {
 }
 function serveApp(res,file){fs.readFile(file,'utf8',(e,html)=>{if(e)return serve(res,file);const body=html.replaceAll('__PAPO_BUILD_ID__',BUILD_ID);res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Length':Buffer.byteLength(body),'Cache-Control':'no-store'});res.end(body)})}
 const srv = http.createServer(async (req, res) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); res.setHeader('Cache-Control', 'no-store');
   try {
     let u; try { u = decodeURIComponent(req.url.split('?')[0]); } catch (e) { res.writeHead(400); return res.end(); }
     if (u.startsWith('/api/')) { if (u === '/api/downloads') return json(res, 200, await avail()); if (u === '/api/version') { res.setHeader('Cache-Control','no-store'); return json(res,200,{version:APP_VERSION,build:BUILD_ID}); } return await api(req, res, u); }

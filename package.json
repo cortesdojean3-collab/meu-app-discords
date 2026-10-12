@@ -28,6 +28,7 @@
     },
     "files": [
       "main.js",
+      "screen-share-selection.js",
       "preload.js",
       "picker-preload.js",
       "picker.html",
@@ -41,7 +42,7 @@
         "provider": "github",
         "owner": "cortesdojean3-collab",
         "repo": "meu-app-discords",
-        "releaseType": "draft"
+        "releaseType": "release"
       }
     ],
     "win": {
@@ -59,10 +60,15 @@
           "arch": [
             "universal"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
         }
       ],
       "icon": "build/icon.png",
-      "identity": null,
       "category": "public.app-category.social-networking"
     },
     "linux": {
