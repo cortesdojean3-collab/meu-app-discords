@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('papo', {
       if (typeof callback !== 'function') return () => {};
       const listener = (_, state) => callback(state);
       ipcRenderer.on('papo:update-state', listener);
-      ipcRenderer.invoke('papo:update-state').then(state => callback(state)).catch(() => {});
+      ipcRenderer.invoke('papo:update-state').then(state => callback(state)).catch(error => console.error('[papo] Não consegui consultar o estado do atualizador:', error));
       return () => ipcRenderer.removeListener('papo:update-state', listener);
     }
   }

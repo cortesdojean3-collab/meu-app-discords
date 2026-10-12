@@ -36,13 +36,17 @@ Para usar coturn, configure o mesmo segredo em `TURN_SECRET` no serviço web e n
 
 No teste manual, entre com duas contas em dispositivos ou perfis diferentes, abra a mesma sala de voz e compartilhe a tela de um lado. Confirme que o outro lado vê o vídeo, que “Parar tela” encerra o fluxo e que sair da sala libera câmera/microfone. Repita cancelando o seletor e, idealmente, em redes diferentes. O teste automatizado do servidor não substitui esse teste de mídia real.
 
+No desktop Electron, o seletor solicita ao Electron todas as fontes `screen` e `window`, atualiza a lista periodicamente, exibe miniaturas e confirma novamente a fonte antes de autorizar o vídeo. Sistemas Linux com PipeWire e janelas minimizadas/protegidas podem limitar o que aparece. O Windows deve ser testado com o instalador real: tente compartilhar um monitor, uma janela com conteúdo em movimento, cancelar, fechar a janela escolhida e iniciar/parar novamente; com duas contas, confirme também que a outra pessoa recebe o vídeo. Este ambiente não fornece uma sessão gráfica Electron nem um segundo participante para validar esses cenários.
+
+Na primeira abertura da sessão, a Kombi atravessa a tela com pontos de luz, pessoas e balões de conversa antes do login. O som original sintetizado está incluído em `public/papo-motor.wav`; a reprodução automática pode ser bloqueada pelo navegador, caso em que o botão permite habilitá-la. “Pular animação”, as preferências em **Configurações > Aparência** e a opção de reduzir movimento controlam a abertura.
+
 ## 4) Atualizações
 
 O site consulta `/api/version` a cada cinco minutos e avisa quando o build servido muda; a pessoa escolhe quando recarregar. Não é uma instalação silenciosa de software nativo.
 
 O desktop usa `electron-updater`: consulta GitHub Releases, baixa a atualização em segundo plano, valida o SHA-512 publicado no manifesto e oferece instalar/reiniciar. O workflow agora gera e publica os manifestos de atualização junto com os instaladores. O token de CI não é incorporado ao app. Uma instalação desktop antiga precisa ser reinstalada uma vez com o novo instalador para receber o mecanismo.
 
-**Assinatura pendente:** este repositório ainda não tem certificado de assinatura da Apple/Windows. O atualizador informa erros e não declara uma atualização como instalada; atualizações do macOS exigem um app assinado e notarizado. Configure certificados de distribuição no CI antes de oferecer atualização confiável para usuários. Os checksums detectam arquivo corrompido, mas não substituem assinatura do editor.
+**Assinatura pendente:** este repositório ainda não tem certificados de assinatura. O atualizador informa erros e não declara uma atualização como instalada; o electron-updater exige que a aplicação macOS seja assinada. Para habilitar assinatura/notarização no CI, configure os segredos `APPLE_CERTIFICATE_P12` e `APPLE_CERTIFICATE_PASSWORD`; a notarização também usa `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` e `APPLE_TEAM_ID`. A assinatura Windows não está configurada. Os checksums e SHA-512 dos manifestos detectam corrupção, mas não substituem a assinatura do editor. Sem os certificados, o build macOS pode ser distribuído para teste manual, mas não oferece atualização automática confiável.
 
 O workflow `Gerar executaveis` publica um release de build ao ser iniciado manualmente, com número de versão crescente, ou quando uma tag SemVer `v*` é enviada. Para publicar uma versão numerada, use uma tag como `v1.1.0`. Revise e execute o workflow só depois de aprovar/mesclar as alterações.
 
