@@ -1,5 +1,9 @@
 # Papo - chat, call e tela em HD
 
+## Evento de três anos
+
+Veja [Nosso Pequeno Infinito](docs/evento-tres-anos.md) para as datas, o painel de administração, as 30 cartas, o jardim, as surpresas e a persistência do evento.
+
 ## 1) Servidor (Render, Web Service, Node)
 Build: `npm install --omit=dev` | Start: `npm start`. Teste em `https://SEU-APP.onrender.com/health`.
 

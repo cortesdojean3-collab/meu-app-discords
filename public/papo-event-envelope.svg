@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 390" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Uma carta de carinho entre flores</title>
+  <desc id="desc">Envelope de papel creme com flores lavanda, pequenas rosas e um coração rosa, amarrado com um delicado laço.</desc>
+  <defs>
+    <linearGradient id="paper" x1="72" y1="146" x2="347" y2="349" gradientUnits="userSpaceOnUse"><stop stop-color="#fff9ec"/><stop offset=".52" stop-color="#f7eddf"/><stop offset="1" stop-color="#ead7c8"/></linearGradient>
+    <linearGradient id="flap" x1="236" y1="73" x2="227" y2="277" gradientUnits="userSpaceOnUse"><stop stop-color="#eddbca"/><stop offset=".24" stop-color="#fff7ea"/><stop offset="1" stop-color="#e8cfbd"/></linearGradient>
+    <linearGradient id="inside" x2="0" y2="1"><stop stop-color="#dbc3b4"/><stop offset="1" stop-color="#f3e2d5"/></linearGradient>
+    <linearGradient id="heart" x1="179" y1="109" x2="273" y2="222" gradientUnits="userSpaceOnUse"><stop stop-color="#f8d1dc"/><stop offset=".5" stop-color="#eeb1ca"/><stop offset="1" stop-color="#d692b4"/></linearGradient>
+    <linearGradient id="ribbon" x2="0" y2="1"><stop stop-color="#efc0d8"/><stop offset=".5" stop-color="#d58eaf"/><stop offset="1" stop-color="#b87395"/></linearGradient>
+    <linearGradient id="leaf" x2="1" y2="1"><stop stop-color="#b7cdb8"/><stop offset=".5" stop-color="#8aaf99"/><stop offset="1" stop-color="#689184"/></linearGradient>
+    <radialGradient id="rose"><stop stop-color="#d58aa6"/><stop offset=".4" stop-color="#e9afc4"/><stop offset="1" stop-color="#f4d3dc"/></radialGradient>
+    <linearGradient id="whiteFlower" x2="1" y2="1"><stop stop-color="#fff9e8"/><stop offset="1" stop-color="#e4d8e5"/></linearGradient>
+    <g id="roseFlower"><path d="M0-20C9-24 16-17 16-12 27-10 25 3 18 8 19 21 8 26 0 20-12 25-22 16-18 6-27-2-20-13-12-13-12-22-4-24 0-20Z" fill="url(#rose)" stroke="#d599ae" stroke-width="1"/><path d="M0-15c10-6 16 7 6 11 14 1 14 15 4 14-6 13-21 2-14-3-12-4-7-15 3-14m-2 17c-5-1-9-7-5-12 4-6 14-7 16 0 1 5-3 11-8 7-3-2-2-6 2-6" stroke="#c6829d" stroke-width="1.5" stroke-linecap="round" opacity=".75"/><path d="M-15-4q2-11 10-10m15 1q10 8 4 16m-14 15q-11 0-13-8" stroke="#ffebeb" stroke-width="1.7" opacity=".6"/></g>
+    <g id="leafShape"><path d="M0 0C-3-17 5-35 25-41 25-16 18-2 0 0Z" fill="url(#leaf)" stroke="#7f9c8e" stroke-width=".7"/><path d="m2-2 20-33m-17 26 10 1m-5-12 9 1" stroke="#dce6d4" stroke-width=".8" opacity=".65"/></g>
+    <g id="whiteBloom"><path d="M0 0c-25 7-32-15-13-21-8-24 17-28 24-8 22-11 34 11 15 24 14 21-9 33-23 13-17 19-34 0-19-14Z" fill="url(#whiteFlower)" stroke="#cfc0cd" stroke-width=".7"/><path d="m0 0-9-16M0 0 8-23M0 0l22-4M0 0l-1 18M0 0l-13 7" stroke="#ddccda" stroke-width=".8"/><circle r="6" fill="#d6b779"/><g fill="#8f825a"><circle cx="-3" cy="-2" r="1"/><circle cx="2" cy="-3" r="1"/><circle cx="3" cy="1" r="1"/><circle cy="3" r="1"/><circle cx="-2" cy="1" r="1"/></g></g>
+    <g id="lavender"><path d="M0 0q-5-37 4-80" stroke="#82a491" stroke-width="2" stroke-linecap="round"/><g fill="#b7a1cf" stroke="#977fac" stroke-width=".6"><ellipse cx="5" cy="-78" rx="4" ry="7" transform="rotate(10 5 -78)"/><ellipse cx="-1" cy="-69" rx="4" ry="7" transform="rotate(-30 -1 -69)"/><ellipse cx="9" cy="-65" rx="4" ry="7" transform="rotate(30 9 -65)"/><ellipse cx="-2" cy="-56" rx="4" ry="7" transform="rotate(-35 -2 -56)"/><ellipse cx="8" cy="-51" rx="4" ry="7" transform="rotate(35 8 -51)"/></g><path d="M0-15q-14-11-15-21 13 2 16 15m-1 9q12-10 12-21-11 4-12 17" fill="url(#leaf)"/></g>
+    <g id="tinyHeart"><path d="M0 7C-18-5-7-17 0-8 7-17 18-5 0 7Z" fill="#e9b4cd" stroke="#c897b4" stroke-width=".5"/></g>
+  </defs>
+  <ellipse cx="232" cy="356" rx="160" ry="12" fill="#241431" opacity=".13"/>
+  <path d="m73 183 147-105q10-7 20 0l147 105-158 110Z" fill="url(#flap)" stroke="#d1b2a2" stroke-width="2"/>
+  <path d="m85 187 143-97 142 97-141 94Z" fill="url(#inside)"/>
+  <path d="m79 183 147 87 158-87-4 152q0 12-14 13l-270 7q-15 1-16-13Z" fill="url(#paper)" stroke="#d5b7a8" stroke-width="2"/>
+  <path d="M105 201q1-50 49-93h154q31 38 38 90l-113 80Z" fill="#fff9ee" stroke="#e5d7cd" stroke-width="1"/>
+  <g opacity=".6" stroke="#deccda" stroke-linecap="round"><path d="M173 156h104m-97 10h103m-113 13h116m-103 11h83"/><path d="M211 114h37" stroke="#e4b2c6" stroke-width="2"/></g>
+  <path d="M224 137c-38-48-103-5-49 49l49 43 49-43c54-54-11-97-49-49Z" fill="url(#heart)" stroke="#dba2be" stroke-width="1.5"/>
+  <path d="M176 146c11-12 25-9 31-3" stroke="#ffe2e7" stroke-width="7" stroke-linecap="round" opacity=".55"/>
+  <g stroke="#8ca78f" stroke-width="2" stroke-linecap="round"><path d="M201 277c-24-36-56-100-90-145m57 98c-37-38-53-75-63-130m141 175c38-44 61-80 84-137m-53 90c42-34 69-41 88-70m-66 95c29-10 54-29 60-54"/></g>
+  <g><use href="#leafShape" transform="translate(149 227) rotate(-118) scale(.83)"/><use href="#leafShape" transform="translate(167 241) rotate(-38) scale(.67)"/><use href="#leafShape" transform="translate(126 190) rotate(-115) scale(.95)"/><use href="#leafShape" transform="translate(127 167) rotate(-22) scale(.73)"/><use href="#leafShape" transform="translate(113 146) rotate(-126) scale(.7)"/><use href="#leafShape" transform="translate(102 119) rotate(-125) scale(.55)"/><use href="#leafShape" transform="translate(296 240) rotate(24) scale(.7)"/><use href="#leafShape" transform="translate(311 213) rotate(86) scale(.9)"/><use href="#leafShape" transform="translate(308 180) rotate(-12) scale(.77)"/><use href="#leafShape" transform="translate(334 157) rotate(75) scale(.72)"/><use href="#leafShape" transform="translate(343 222) rotate(47) scale(.62)"/><use href="#leafShape" transform="translate(282 258) rotate(80) scale(.8)"/></g>
+  <g><use href="#lavender" transform="translate(184 245) rotate(-21) scale(.91)"/><use href="#lavender" transform="translate(274 253) rotate(19) scale(.9)"/><use href="#lavender" transform="translate(305 246) rotate(38) scale(.63)"/></g>
+  <g><use href="#roseFlower" transform="translate(147 212) rotate(-12) scale(1.05)"/><use href="#roseFlower" transform="translate(290 215) rotate(22) scale(1.15)"/><use href="#roseFlower" transform="translate(231 256) rotate(-8) scale(.94)"/><use href="#whiteBloom" transform="translate(181 208) rotate(22) scale(.72)"/><use href="#whiteBloom" transform="translate(171 242) rotate(-15) scale(.88)"/><use href="#whiteBloom" transform="translate(268 244) rotate(15) scale(.58)"/></g>
+  <path d="m79 183 148 91L91 347q-10-4-11-14Zm305 0-155 91 142 72q8-3 9-11Z" fill="url(#paper)" stroke="#d5b7a8" stroke-width="1.5"/>
+  <path d="m84 338 136-86q8-5 18 0l138 88-280 15q-10 1-12-17Z" fill="url(#paper)" stroke="#dabdad" stroke-width="1.5"/>
+  <path d="M226 283c-36-46-96-24-74 8 15 19 49 6 74-8Zm9 0c32-50 91-37 79-7-10 24-44 20-79 7Z" fill="url(#ribbon)" stroke="#b57996" stroke-width="1.5"/>
+  <path d="M216 282c-27-29-68-21-58-2 8 13 33 9 58 2Zm30-1c27-34 64-30 62-14-5 18-31 16-62 14Z" fill="#efcddd" opacity=".7"/>
+  <path d="M222 288c-5 25-20 45-48 75l5-23-15 7c22-25 31-38 47-63Zm15-2c2 30 16 58 50 76l-6-22 14 8c-16-27-29-50-46-65Z" fill="url(#ribbon)" stroke="#ba7e9a" stroke-width="1.5"/>
+  <path d="m213 295-37 60m70-61 37 56" stroke="#f5d1df" stroke-width="3" stroke-linecap="round" opacity=".62"/>
+  <path d="M218 273c8-3 15-3 23-1q8 11 2 23c-8 3-17 3-23-1q-5-10-2-21Z" fill="url(#ribbon)" stroke="#bb7e9e" stroke-width="1.3"/>
+  <path d="m227 276-3 13" stroke="#f7d8e6" stroke-width="3" stroke-linecap="round" opacity=".75"/>
+  <g stroke="#bf9ca7" stroke-width="2" stroke-linecap="round" opacity=".6"><path d="m330 226 25-5m-24 11 23-5m-25 11 26-5"/></g>
+  <use href="#tinyHeart" transform="translate(198 64) rotate(-15) scale(1.25)"/>
+  <use href="#tinyHeart" transform="translate(279 85) rotate(17) scale(.87)"/>
+  <use href="#tinyHeart" transform="translate(346 282) rotate(8) scale(.42)"/>
+  <g fill="#dcc9dd" opacity=".7"><circle cx="130" cy="284" r="2"/><circle cx="325" cy="305" r="1.6"/><circle cx="97" cy="326" r="1.5"/><circle cx="348" cy="326" r="1.5"/></g>
+</svg>

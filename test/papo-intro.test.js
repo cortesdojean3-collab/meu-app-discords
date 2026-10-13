@@ -34,7 +34,7 @@ function eventTarget() {
 function element(id) {
   const classes = new Set(), attributes = new Map();
   return Object.assign(eventTarget(), {
-    id, classes, attributes, dataset: {}, style: {}, textContent: '', hidden: false, disabled: false,
+    id, classes, attributes, dataset: {}, style: { setProperty(name, value) { this[name] = value; } }, children: [], textContent: '', hidden: false, disabled: false,
     removed: false, focusCount: 0,
     classList: {
       add: (...names) => names.forEach(name => classes.add(name)),
@@ -42,6 +42,7 @@ function element(id) {
       contains: name => classes.has(name)
     },
     setAttribute: (name, value) => attributes.set(name, String(value)),
+    append(...nodes) { this.children.push(...nodes); },
     remove() { this.removed = true; },
     querySelector() { return null; },
     closest() { return null; },
@@ -82,17 +83,19 @@ function virtualClock() {
   };
 }
 
-function harness({ entry = 'app', preferences = {}, reduced = false, seen = new Map(), pendingPlay = false, mount = true } = {}) {
+function harness({ entry = 'app', preferences = {}, reduced = false, seen = new Map(), pendingPlay = false, mount = true, eventBootstrap } = {}) {
   const clock = virtualClock(), root = element('html'), screen = element('papo-intro');
   root.dataset.papoEntry = entry;
   const van = element('van'), image = element('image'), audio = element('papoMotorAudio');
   const sound = element('sound'), soundText = element('sound-text'), skip = element('skip');
   const status = element('papoIntroStatus'), au = element('au'), cin = element('cin');
   const profile = element('m1'), profileName = element('pname');
-  const nodes = [root, screen, van, image, audio, sound, soundText, skip, status, au, cin, profile, profileName];
+  const brand = element('intro-brand');
+  const nodes = [root, screen, van, image, audio, sound, soundText, skip, status, au, cin, profile, profileName, brand];
   const byId = Object.fromEntries(nodes.map(node => [node.id, node]));
   const document = Object.assign(eventTarget(), {
     documentElement: root, hidden: false, activeElement: null,
+    createElement: name => element(name),
     getElementById: id => byId[id]?.removed ? null : byId[id] || null,
     querySelector: selector => selector === '[data-intro-skip]' ? skip : null
   });
@@ -100,7 +103,7 @@ function harness({ entry = 'app', preferences = {}, reduced = false, seen = new 
   van.querySelector = selector => selector === 'img' ? image : null;
   sound.querySelector = selector => selector === 'span' ? soundText : null;
   screen.querySelector = selector => ({ '.intro-van': van, '#papoMotorAudio': audio,
-    '[data-intro-sound]': sound, '[data-intro-skip]': skip, '#papoIntroStatus': status }[selector] || null);
+    '[data-intro-sound]': sound, '[data-intro-skip]': skip, '#papoIntroStatus': status, '.intro-brand': brand }[selector] || null);
   const playResolvers = [];
   Object.assign(audio, {
     paused: true, duration: 6, currentTime: 0, playCalls: 0, pauseCalls: 0,
@@ -112,6 +115,7 @@ function harness({ entry = 'app', preferences = {}, reduced = false, seen = new 
     }
   });
   const window = eventTarget();
+  window.PapoEventBootstrap = eventBootstrap;
   let reloads = 0;
   const context = vm.createContext({
     window, document, localStorage: storage(new Map([['papo.extras.v1', JSON.stringify(preferences)]])),
@@ -124,13 +128,14 @@ function harness({ entry = 'app', preferences = {}, reduced = false, seen = new 
     }[name] || '') })
   });
   const html = pages[entry === 'app' ? 'app' : 'index'];
-  const bootstrap = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i)?.[1];
+  const bootstrap = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
+    .map(match => match[1]).find(source => source.includes('window.PapoStartup'));
   assert.ok(bootstrap, 'entry page must provide its startup bootstrap');
   vm.runInContext(bootstrap, context, { filename: `${entry}-bootstrap.js` });
   const runIntro = () => vm.runInContext(introSource, context, { filename: 'papo-intro.js' });
   if (mount) runIntro();
   return {
-    clock, root, screen, van, image, audio, sound, soundText, skip, status, au, cin, document,
+    clock, root, screen, van, image, audio, sound, soundText, skip, status, au, cin, brand, document,
     window, seen, runIntro, playResolvers, startup: window.PapoStartup,
     reloads: () => reloads,
     listeners: () => nodes.reduce((sum, node) => sum + node.listenerCount(), document.listenerCount() + window.listenerCount()),
@@ -388,5 +393,101 @@ test('a slow network timeout can choose the retry screen and safely finish loadi
   assert.equal(h.startup.outcome, 'offline');
   assert.equal(h.audio.paused, true);
   assert.equal(h.listeners(), 0);
+  assert.equal(h.clock.pending.size, 0);
+});
+
+test('an active anniversary keeps the original drive and motor then briefly shows its greeting', async () => {
+  const h = harness({ eventBootstrap: { active: true, features: { intro: true } } });
+  assert.equal(h.image.src, '/kombi-flowers.svg');
+  assert.equal(h.screen.classes.has('intro-anniversary'), true);
+  const petals = h.screen.children.find(node => node.className === 'intro-event-petals');
+  assert.equal(petals.children.length, 12, 'decoration is bounded and cannot accumulate');
+  h.startup.markReady('app');
+  await h.clock.advance(200);
+  assert.equal(h.audio.playCalls, 1);
+  h.finishDrive();
+  assert.equal(h.audio.paused, true, 'the greeting does not extend the motor sound');
+  assert.equal(h.screen.classes.has('intro-event-message'), true);
+  assert.equal(h.root.classes.has('papo-intro-reveal'), false);
+  const note = h.brand.children[0];
+  assert.equal(note.children[0].textContent, '3 anos desde que nossos caminhos se cruzaram. 💜');
+  assert.equal(note.children[1].textContent, 'Nosso Pequeno Infinito');
+  await h.clock.advance(1399);
+  assert.equal(h.root.classes.has('papo-intro-reveal'), false);
+  await h.clock.advance(1);
+  assert.equal(h.root.classes.has('papo-intro-reveal'), true);
+  await h.clock.advance(500);
+  assert.equal(h.screen.removed, true);
+  assert.equal(h.clock.pending.size, 0);
+  assert.equal(h.listeners(), 0);
+});
+
+test('an anniversary greeting cannot release an unresolved session and skip adds no event delay', async () => {
+  const h = harness({ eventBootstrap: { active: true } });
+  h.finishDrive();
+  await h.clock.advance(1800);
+  assert.equal(h.root.classes.has('papo-intro-reveal'), false);
+  h.startup.markReady('login');
+  await h.clock.advance(500);
+  assert.equal(h.screen.removed, true);
+  const skip = harness({ eventBootstrap: { active: true } });
+  await skip.clock.advance(200);
+  skip.skip.click();
+  assert.equal(skip.image.src, '/kombi-flowers.svg#still');
+  assert.equal(skip.audio.paused, true);
+  skip.startup.markReady('app');
+  await skip.clock.advance(500);
+  assert.equal(skip.screen.removed, true);
+  assert.equal(skip.clock.pending.size, 0);
+});
+
+test('quiet anniversary loading uses a static floral Kombi without particles, sound or greeting delay', async () => {
+  const h = harness({ reduced: true, eventBootstrap: { active: true } });
+  assert.equal(h.image.src, '/kombi-flowers.svg#still');
+  assert.equal(h.screen.children.some(node => node.className === 'intro-event-petals'), false);
+  assert.equal(h.screen.classes.has('intro-event-message'), true);
+  h.startup.markReady('login');
+  await h.clock.advance(50);
+  assert.equal(h.screen.removed, true);
+  assert.equal(h.audio.playCalls, 0);
+  assert.equal(h.clock.pending.size, 0);
+});
+
+test('future, ended and administratively disabled event intros retain the normal Kombi', async () => {
+  for (const eventBootstrap of [{ active: false, status: 'future' }, { active: false, status: 'ended' },
+    { active: true, features: { intro: false } }]) {
+    const h = harness({ eventBootstrap });
+    assert.equal(h.screen.classes.has('intro-anniversary'), false);
+    h.startup.markReady('app');
+    h.finishDrive();
+    assert.equal(h.root.classes.has('papo-intro-reveal'), true);
+    await h.clock.advance(500);
+    assert.equal(h.screen.removed, true);
+  }
+});
+
+test('disabled effects prevent anniversary petals and pagehide cleans an in-progress greeting', async () => {
+  const h = harness({ preferences: { easterEggs: false }, eventBootstrap: { active: true } });
+  assert.equal(h.screen.children.some(node => node.className === 'intro-event-petals'), false);
+  h.finishDrive();
+  assert.equal(h.screen.classes.has('intro-event-message'), true);
+  h.window.dispatchEvent({ type: 'pagehide' });
+  assert.equal(h.screen.removed, true);
+  assert.equal(h.clock.pending.size, 0);
+  assert.equal(h.listeners(), 0);
+  await h.clock.advance(2000);
+  assert.equal(h.root.classes.has('papo-intro-reveal'), false);
+});
+
+test('the administrator can disable anniversary intro petals while preserving its floral Kombi and greeting', async () => {
+  const h = harness({ eventBootstrap: { active: true, decorations: { petals: false } } });
+  assert.equal(h.image.src, '/kombi-flowers.svg');
+  assert.equal(h.screen.classes.has('intro-anniversary'), true);
+  assert.equal(h.screen.children.some(node => node.className === 'intro-event-petals'), false);
+  h.startup.markReady('app');
+  h.finishDrive();
+  assert.equal(h.screen.classes.has('intro-event-message'), true);
+  await h.clock.advance(1900);
+  assert.equal(h.screen.removed, true);
   assert.equal(h.clock.pending.size, 0);
 });

@@ -1,0 +1,30 @@
+#papoEventAdmin{position:fixed;inset:0;z-index:960;background:#090717c9;display:grid;place-items:center;padding:20px;backdrop-filter:blur(10px);color:#f9f6ff;font:14px/1.5 system-ui,sans-serif}
+#papoEventAdmin *{box-sizing:border-box}
+#papoEventAdmin .pea-dialog{display:flex;flex-direction:column;width:min(940px,100%);max-height:calc(100dvh - 40px);border:1px solid #b79aef45;border-radius:24px;background:linear-gradient(145deg,#261a3b,#151120);box-shadow:0 24px 100px #050210a6;overflow:hidden}
+#papoEventAdmin .pea-header{padding:24px 28px 18px;display:flex;align-items:center;gap:20px;border-bottom:1px solid #ffffff13}
+#papoEventAdmin .pea-header h2{font:600 24px/1.2 Georgia,serif;margin:3px 0 0;color:#f6eafa}
+#papoEventAdmin .pea-eyebrow{font-size:10px;letter-spacing:2px;color:#d3b8f6;text-transform:uppercase}
+#papoEventAdmin .pea-close{margin-left:auto;width:38px;height:38px;border:1px solid #ffffff26;border-radius:50%;background:#ffffff09;color:#f9f6ff;font-size:22px;cursor:pointer}
+#papoEventAdmin .pea-body{padding:24px 28px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#765799 transparent}
+#papoEventAdmin .pea-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+#papoEventAdmin fieldset{padding:20px;border:1px solid #af8bdd2e;border-radius:16px;margin:0 0 22px;min-width:0}
+#papoEventAdmin legend{padding:0 8px;color:#e7d5f8;font-weight:600}
+#papoEventAdmin label.pea-field{display:flex;flex-direction:column;gap:7px;min-width:0;color:#e3d5f2;font-size:12px;font-weight:500}
+#papoEventAdmin input:not([type=checkbox]),#papoEventAdmin textarea,#papoEventAdmin select{width:100%;font:14px/1.5 system-ui,sans-serif;background:#100d1b;border:1px solid #8e6eae55;color:#fff;padding:10px 12px;border-radius:9px;outline:none;resize:vertical;color-scheme:dark}
+#papoEventAdmin input:focus-visible,#papoEventAdmin textarea:focus-visible,#papoEventAdmin select:focus-visible,#papoEventAdmin button:focus-visible{outline:2px solid #dbbfff;outline-offset:3px}
+#papoEventAdmin textarea{min-height:92px}
+#papoEventAdmin .pea-wide{grid-column:1/-1}
+#papoEventAdmin .pea-check{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#ddd0ef;padding:8px 0}
+#papoEventAdmin input[type=checkbox]{accent-color:#b58ce8;width:17px;height:17px;flex:none;margin:2px 0}
+#papoEventAdmin .pea-help{color:#b5a3c7;font-size:12px;margin:8px 0 14px;font-weight:400}
+#papoEventAdmin .pea-letters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+#papoEventAdmin details{margin:0 0 22px;border:1px solid #af8bdd2e;border-radius:16px;padding:16px 20px}
+#papoEventAdmin summary{cursor:pointer;font-weight:600;color:#e7d5f8}
+#papoEventAdmin details[open] summary{margin-bottom:18px}
+#papoEventAdmin .pea-footer{padding:16px 28px;border-top:1px solid #ffffff13;display:flex;align-items:center;gap:16px;background:#130e1d}
+#papoEventAdmin .pea-status{font-size:12px;color:#d9c9ed;flex:1;margin:0;white-space:pre-line}
+#papoEventAdmin .pea-status[data-error=true]{color:#ffb8c9}
+#papoEventAdmin .pea-save{background:#9d6dde;color:#fff;border:1px solid #ba90f2;padding:11px 18px;border-radius:10px;font:600 13px system-ui;cursor:pointer;flex:none}
+#papoEventAdmin button:disabled{opacity:.5;cursor:wait}
+#papoEventAdmin .pea-loading{padding:50px;text-align:center;color:#c7b2e0}
+@media(max-width:600px){#papoEventAdmin{padding:8px}#papoEventAdmin .pea-dialog{max-height:calc(100dvh - 16px);border-radius:17px}#papoEventAdmin .pea-header,#papoEventAdmin .pea-body{padding:18px}#papoEventAdmin .pea-header h2{font-size:21px}#papoEventAdmin .pea-grid,#papoEventAdmin .pea-letters{grid-template-columns:1fr}#papoEventAdmin fieldset,#papoEventAdmin details{padding:14px}#papoEventAdmin .pea-footer{padding:14px;align-items:flex-start;flex-direction:column}#papoEventAdmin .pea-save{width:100%}}

@@ -15,6 +15,47 @@
   const soundText = soundButton?.querySelector('span');
   const skipButton = screen.querySelector('[data-intro-skip]');
   const status = screen.querySelector('#papoIntroStatus');
+  const event = window.PapoEventBootstrap;
+  const eventIntro = event?.active === true && event.features?.intro !== false;
+  const eventImage = '/kombi-flowers.svg';
+  let eventMessage = null;
+  let eventMessageDone = !eventIntro || !startup.animate;
+  if (eventIntro) {
+    screen.classList.add('intro-anniversary');
+    if (image) image.src = eventImage + (startup.animate ? '' : '#still');
+    const brand = screen.querySelector('.intro-brand');
+    if (brand) {
+      eventMessage = document.createElement('div');
+      eventMessage.className = 'intro-event-note';
+      eventMessage.setAttribute('aria-live', 'polite');
+      eventMessage.setAttribute('aria-hidden', 'true');
+      const greeting = document.createElement('p');
+      greeting.textContent = '3 anos desde que nossos caminhos se cruzaram. 💜';
+      const name = document.createElement('strong');
+      name.textContent = 'Nosso Pequeno Infinito';
+      eventMessage.append(greeting, name);
+      brand.append(eventMessage);
+    }
+    let effects = event.features?.decorations !== false && event.decorations?.petals !== false;
+    try { effects = effects && JSON.parse(localStorage.getItem('papo.extras.v1') || '{}').easterEggs !== false; } catch {}
+    if (startup.animate && !startup.reduced && effects) {
+      const petals = document.createElement('div');
+      petals.className = 'intro-event-petals';
+      petals.setAttribute('aria-hidden', 'true');
+      for (let index = 0; index < 12; index++) {
+        const petal = document.createElement('i');
+        petal.style.setProperty('--petal-x', `${8 + (index * 23) % 86}%`);
+        petal.style.setProperty('--petal-delay', `${(index % 5) * .23}s`);
+        petal.style.setProperty('--petal-turn', `${95 + index * 17}deg`);
+        petals.append(petal);
+      }
+      screen.append(petals);
+    }
+    if (!startup.animate) {
+      screen.classList.add('intro-event-message');
+      eventMessage?.setAttribute('aria-hidden', 'false');
+    }
+  }
   const timers = new Set(), listeners = [];
   const motion = van?.getAnimations?.().find(animation => animation.animationName === 'papo-drive');
   const motionElapsed = Number(motion?.currentTime) || 0;
@@ -106,7 +147,7 @@
     }
   }
   function reveal() {
-    if (closed || leaving || !startup.ready || !animationDone) return;
+    if (closed || leaving || !startup.ready || !animationDone || !eventMessageDone) return;
     leaving = true;
     stopSound();
     clearTimers();
@@ -124,12 +165,20 @@
       reveal();
     } else if (status) status.textContent = startup.entry === 'app' ? 'Preparando sua conexão…' : 'Iniciando Papo…';
   }
-  function finishAnimation() {
+  function showEventMessage(skipped = false) {
+    if (!eventIntro || eventMessageDone) return;
+    screen.classList.add('intro-event-message');
+    eventMessage?.setAttribute('aria-hidden', 'false');
+    if (skipped || !eventMessage) { eventMessageDone = true; return; }
+    later(() => { eventMessageDone = true; updateReady(); }, 1400);
+  }
+  function finishAnimation(skipped = false) {
     if (closed || leaving || animationDone) return;
     animationDone = true;
     stopSound();
     if (soundButton) soundButton.disabled = true;
     if (skipButton && !startup.ready) { skipButton.disabled = true; skipButton.textContent = 'Conectando…'; }
+    showEventMessage(skipped);
     updateReady();
   }
   function showFailure() {
@@ -139,7 +188,9 @@
     clearTimers();
     stopSound();
     root.dataset.papoMotion = 'reduced';
-    if (image) image.src = '/kombi.svg#still';
+    if (image) image.src = eventIntro ? eventImage + '#still' : '/kombi.svg#still';
+    eventMessageDone = true;
+    screen.classList.remove('intro-event-message');
     screen.setAttribute('aria-busy', 'false');
     if (status) status.textContent = 'Não conseguimos iniciar o Papo. Recarregue para tentar de novo.';
     if (soundButton) soundButton.hidden = true;
@@ -147,7 +198,7 @@
   }
 
   if (!startup.animate) {
-    if (image) image.src = '/kombi.svg#still';
+    if (image) image.src = eventIntro ? eventImage + '#still' : '/kombi.svg#still';
     if (soundButton) soundButton.hidden = true;
     if (skipButton) skipButton.hidden = true;
     screen.focus({ preventScroll: true });
@@ -159,8 +210,11 @@
   listen(skipButton, 'click', () => {
     if (fatal) { location.reload(); return; }
     root.dataset.papoMotion = 'reduced';
-    if (image) image.src = '/kombi.svg#still';
-    finishAnimation();
+    if (image) image.src = eventIntro ? eventImage + '#still' : '/kombi.svg#still';
+    if (animationDone && !eventMessageDone) {
+      eventMessageDone = true;
+      updateReady();
+    } else finishAnimation(true);
   });
   listen(soundButton, 'click', () => {
     if (audio && (!audio.paused || playPending)) { soundBlocked = false; stopSound(); }
@@ -203,6 +257,7 @@
     }, Math.max(0, driveDuration + driveDelay - motionElapsed - 320));
     skipButton?.focus({ preventScroll: true });
   }
+  if (eventIntro && animationDone && startup.animate) showEventMessage();
   later(() => {
     if (startup.ready) return;
     if (typeof startup.onTimeout === 'function') startup.onTimeout();

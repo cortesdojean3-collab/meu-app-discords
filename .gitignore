@@ -2,6 +2,8 @@ node_modules/
 dist/
 downloads/
 data.json
+data.json.event.json
+data.json.event.json.*
 .env
 .env.*
 !.env.example

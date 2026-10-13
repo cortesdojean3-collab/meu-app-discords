@@ -1,6 +1,7 @@
 const http = require('http'), https = require('https'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { createStorage } = require('./storage');
+const { createEventService } = require('./event-service');
 const PORT = +process.env.PORT || 3000, HOST = '0.0.0.0', INVITE = process.env.INVITE_CODE || '';
 const DEFAULT_REPO = 'cortesdojean3-collab/meu-app-discords';
 const configuredRepo = process.env.GITHUB_REPO || DEFAULT_REPO;
@@ -8,6 +9,7 @@ const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(configuredRepo) ? configu
 const DB = process.env.DATA_FILE || path.join(__dirname, 'data.json'), START = Date.now();
 const APP_VERSION = require('./package.json').version;
 const BUILD_FILES=['server.js','storage.js','migrations/001_persistent_data.sql','migrations/import-legacy.js','main.js','screen-share-selection.js','preload.js','picker-preload.js','picker.html','package.json','public/index.html','public/app.html','public/papo-enhancements.js','public/papo-intro.css','public/papo-intro.js','public/papo-motor.wav','public/kombi.svg','public/sw.js','public/downloads.html','public/papo-ui.css','public/kombi-cursor.svg','public/kombi-cursor-medium.svg','public/papo-surprises.js','public/papo-surprises.css','public/papo-garden.svg','public/kombi-flowers.svg'];
+BUILD_FILES.push('event-service.js','event-state.js','migrations/002_event.sql','public/papo-event.js','public/papo-event.css','public/papo-event-admin.js','public/papo-event-admin.css','public/papo-event-garden.svg','public/papo-event-envelope.svg');
 function localBuildId(){const hash=crypto.createHash('sha256');for(const file of BUILD_FILES)hash.update(file).update('\0').update(fs.readFileSync(path.join(__dirname,file)));return hash.digest('hex').slice(0,12)}
 const BUILD_ID=process.env.RENDER_GIT_COMMIT||process.env.GITHUB_SHA||localBuildId();
 const FILES = { win: 'Papo-win.exe', mac: 'Papo-mac.dmg', linux: 'Papo-linux.AppImage' };
@@ -19,9 +21,11 @@ process.on('uncaughtException', e => { if (TEMP.test((e.code || '') + e.message)
 process.on('unhandledRejection', e => log('error', 'proc', 'promise rejeitada', { m: String((e && e.message) || e) }));
 /* ---------- persistência: Postgres relacional ou arquivo local ---------- */
 const storage = createStorage({ databaseUrl: process.env.DATABASE_URL, dataFile: DB, legacyDataFile: process.env.LEGACY_DATA_FILE });
-let data = {}, tm, flushing = false, again = false;
+let data = {}, tm, flushing = false, again = false, eventService;
 async function load() {
   data = await storage.load();
+  eventService = createEventService({pool:storage.pool,dataFile:process.env.EVENT_DATA_FILE||DB+'.event.json',users:data.users,logger:message=>log('warn','event',message)});
+  await eventService.initialize();
   if (!storage.persistent) log('warn', 'db', 'DATABASE_URL não configurada; arquivo local pode ser perdido em novo deploy');
 }
 async function flush() {
@@ -71,6 +75,12 @@ const limited = ip => { const x = tries[ip] = tries[ip] || { n: 0, t: Date.now()
 setInterval(() => { for (const k in tries) if (Date.now() - tries[k].t > 6e5) delete tries[k]; }, 6e5).unref();
 const COLORS = ['#7c3aed', '#2563eb', '#db2777', '#059669', '#d97706', '#0891b2'];
 const readJson = req => new Promise(ok => { let b = ''; req.on('data', d => { b += d; if (b.length > 4000) { req.destroy(); ok({}); } }); req.on('end', () => { try { ok(JSON.parse(b)); } catch (e) { ok({}); } }); req.on('error', () => ok({})); });
+const readEventJson = req => new Promise((resolve,reject) => {
+  let size=0, chunks=[], failed=false;
+  req.on('data',chunk=>{size+=chunk.length;if(size>262144){if(!failed){failed=true;chunks=[];reject(Object.assign(new Error('A configuração excedeu 256 KB.'),{status:413}));}return;}if(!failed)chunks.push(chunk);});
+  req.on('end',()=>{if(failed)return;try{resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));}catch{reject(Object.assign(new Error('JSON inválido.'),{status:400}));}});
+  req.on('error',()=>{if(!failed)reject(Object.assign(new Error('Não foi possível ler a configuração.'),{status:400}));});
+});
 const ip = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim();
 function newSession(req, res, uid, remember) {
   const sid = crypto.randomBytes(32).toString('base64url');
@@ -110,11 +120,36 @@ async function auth(req, res, reg) {
 }
 async function dropSessions(uid, keep) { if(storage.persistent)await storage.revokeOtherSessions(uid,keep);const removed=[];for(const k in data.sessions)if(data.sessions[k].uid===uid&&k!==keep){removed.push([k,data.sessions[k]]);delete data.sessions[k]}if(!storage.persistent)try{await flushAll()}catch(error){removed.forEach(([k,v])=>data.sessions[k]=v);throw error}C.forEach(c=>{if(c.uid===uid&&c.sh!==keep)try{c.ws.close(4001)}catch{}}); }
 async function api(req, res, u) {
-  if (req.method === 'POST' && !sameOrigin(req)) return json(res, 403, { erro: 'Origem não permitida.' });
+  if (['POST','PUT','PATCH','DELETE'].includes(req.method) && !sameOrigin(req)) return json(res, 403, { erro: 'Origem não permitida.' });
   if (u === '/api/login' || u === '/api/register') return req.method === 'POST' ? auth(req, res, u === '/api/register') : json(res, 405, {});
   const s = await sess(req);
   if (u === '/api/me') { if (!s) return json(res, 401, { erro: 'Sessão expirada.' }); await renew(req, res, s); return json(res, 200, { uid: s.uid }); }
   if (!s) return json(res, 401, { erro: 'Sessão expirada.' });
+  if (u === '/api/event' || u.startsWith('/api/event/')) {
+    try {
+      res.setHeader('Cache-Control','private, no-store');
+      if (u === '/api/event' && req.method === 'GET') return json(res,200,await eventService.state(s.uid));
+      if (u === '/api/event/admin') {
+        if (!await eventService.canAdmin(s.uid)) return json(res,403,{erro:'Apenas o administrador pode configurar o evento.'});
+        if(req.method==='GET')return json(res,200,await eventService.adminState(s.uid));
+        if(req.method==='PUT'){
+          if(!/application\/json/.test(req.headers['content-type']||''))return json(res,415,{erro:'Envie a configuração em JSON.'});
+          return json(res,200,await eventService.update(s.uid,await readEventJson(req)));
+        }
+        return json(res,405,{erro:'Método não permitido.'});
+      }
+      if(u==='/api/event/discover' && req.method==='POST'){
+        if(!/application\/json/.test(req.headers['content-type']||''))return json(res,415,{erro:'Envie a descoberta em JSON.'});
+        const body=await readEventJson(req);return json(res,200,await eventService.discover(s.uid,body?.kind));
+      }
+      const letterRoute=u.match(/^\/api\/event\/letter\/(\d{1,2})$/);
+      if(letterRoute && req.method==='GET')return json(res,200,await eventService.letter(s.uid,+letterRoute[1]));
+      return json(res,u==='/api/event'||u==='/api/event/discover'||letterRoute?405:404,{erro:'Rota ou método não permitido.'});
+    } catch(error) {
+      if(!error.status)log('error','event','falha na persistência do evento',{m:error.message});
+      return json(res,error.status||503,{erro:error.status?error.message:'O evento está temporariamente indisponível. Tente novamente.'});
+    }
+  }
   if (u === '/api/logout' && req.method === 'POST') { const session=data.sessions[s.k];delete data.sessions[s.k];try{if(storage.persistent)await storage.revokeSession(s.k);else await flushAll()}catch(error){data.sessions[s.k]=session;return json(res,503,{erro:'Não foi possível encerrar a sessão. Tente novamente.'})}C.forEach(c=>{if(c.sh===s.k)try{c.ws.close(4001)}catch{}});setCookie(req,res,'',false,true);return json(res,200,{}); }
   if (u === '/api/sessions') { const sessions=storage.persistent?await storage.listSessions(s.uid):Object.entries(data.sessions).filter(([,v])=>v.uid===s.uid&&v.exp>Date.now());return json(res,200,sessions.map(([k,v])=>({ua:v.ua||'Dispositivo',ts:v.ts,current:k===s.k}))); }
   if (u === '/api/sessions/revoke-others' && req.method === 'POST') { try { await dropSessions(s.uid, s.k); return json(res, 200, {}); } catch (error) { return json(res,503,{erro:'Não foi possível encerrar as outras sessões. Tente novamente.'}); } }
@@ -205,7 +240,14 @@ function serve(res, file) {
     res.writeHead(200, h); fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
   });
 }
-function serveApp(res,file){fs.readFile(file,'utf8',(e,html)=>{if(e)return serve(res,file);const body=html.replaceAll('__PAPO_BUILD_ID__',BUILD_ID);res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Length':Buffer.byteLength(body),'Cache-Control':'no-store'});res.end(body)})}
+async function serveApp(res,file){
+  let html;try{html=await fs.promises.readFile(file,'utf8');}catch{return serve(res,file);}
+  let event={status:'unconfigured',active:false,features:{intro:false}};
+  try{event=await eventService.bootstrap();}catch(error){log('warn','event','abertura do evento indisponível',{m:error.message});}
+  const safeEvent=JSON.stringify(event).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+  const body=html.replaceAll('__PAPO_BUILD_ID__',BUILD_ID).replaceAll('__PAPO_EVENT_BOOTSTRAP__',safeEvent);
+  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Length':Buffer.byteLength(body),'Cache-Control':'no-store'});res.end(body);
+}
 const srv = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Frame-Options','DENY'); res.setHeader('Content-Security-Policy',"frame-ancestors 'none'"); res.setHeader('Permissions-Policy','camera=(self), microphone=(self), display-capture=(self)');
@@ -216,8 +258,8 @@ const srv = http.createServer(async (req, res) => {
       let ok = true; if (storage.persistent) { try { await Promise.race([storage.health(), new Promise((_, j) => setTimeout(() => j(new Error('timeout')), 3000))]); } catch (e) { ok = false; } }
       return json(res, ok ? 200 : 503, { ok, uptime: Math.round((Date.now() - START) / 1000), rssMB: Math.round(process.memoryUsage().rss / 1048576), clientes: C.size, usuarios: Object.keys(data.users).length, banco: storage.persistent ? 'postgres' : 'arquivo', persistente: storage.persistent, alertaPersistencia: storage.persistent ? null : 'DATABASE_URL não configurada; o arquivo local pode ser perdido em um redeploy.', github: REPO, downloads: fs.existsSync(path.join(__dirname, 'downloads')) ? fs.readdirSync(path.join(__dirname, 'downloads')) : [] });
     }
-    if (u === '/') return serve(res, path.join(__dirname, 'public/index.html'));
-    if (u === '/app') return serveApp(res, path.join(__dirname, 'public/app.html'));
+    if (u === '/' || u === '/index.html') return await serveApp(res, path.join(__dirname, 'public/index.html'));
+    if (u === '/app' || u === '/app.html') return await serveApp(res, path.join(__dirname, 'public/app.html'));
     if (u === '/downloads' || u === '/downloads/') return serve(res, path.join(__dirname, 'public/downloads.html'));
     if (u === '/ice') { if(!sameOrigin(req))return json(res,403,{erro:'Origem não permitida.'}); return await iceConfig(req,res); }
     if (u.startsWith('/downloads/')) {
@@ -319,7 +361,7 @@ async function shutdown(sig, code) {
   if (closing) return; closing = true; log('info', 'proc', 'encerrando', { sig });
   setTimeout(() => process.exit(code || 0), 8000).unref();
   srv.close(); C.forEach(c => { try { c.ws.send('{"t":"bye"}'); c.ws.close(1001); } catch (e) {} });
-   try { await flushAll(); await storage.close(); } catch (e) {}
+   try { await flushAll(); await eventService?.close(); await storage.close(); } catch (e) {}
   process.exit(code || 0);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM')); process.on('SIGINT', () => shutdown('SIGINT'));

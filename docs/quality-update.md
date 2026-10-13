@@ -2,9 +2,9 @@
 
 ## Diagnóstico e situação da publicação
 
-Em 12/10/2026, o `/health` do serviço `meu-app-discords.onrender.com` informou `banco: arquivo`, `persistente: false` e 2 contas. A integração do Render confirmou serviço Free, uma instância, deploy automático da `main` e nenhum PostgreSQL nesse workspace. A causa identificada é o uso de `data.json` no filesystem efêmero. Não foi feita uma migração no serviço publicado e não há evidência de recuperação de contas que já desapareceram.
+No diagnóstico inicial de 12/10/2026, o serviço usava `data.json` no filesystem efêmero. Depois, com autorização do responsável para recriar a conta sem backup, foi configurado o PostgreSQL `papo-contas` em Oregon e publicado o build `95af688`. A verificação do site confirmou `banco: postgres`, `persistente: true` e serviço saudável. Contas que desapareceram antes da migração não foram recuperadas.
 
-O código desta atualização pode ser publicado na `main` com `[skip render]` no commit. Isso usa o mecanismo oficial de [pular um deploy automático](https://render.com/docs/deploys#skipping-an-auto-deploy) e permite entregar o código antes de resolver backup e banco. Uma publicação no GitHub não significa que essa versão já entrou no site. Um deploy manual continua dependendo da migração descrita abaixo.
+A etapa anterior de publicar com `[skip render]` foi concluída: o serviço já usa PostgreSQL e acompanha a `main` por deploy automático. A escolha foi o PostgreSQL Free temporário, que expira em **11/11/2026 às 23:15, horário de Brasília**; a retenção após essa data exige migração ou mudança de plano. Não foi contratado plano pago. A configuração do novo evento está em [Nosso Pequeno Infinito](evento-tres-anos.md).
 
 ## Persistência e autenticação
 
@@ -17,7 +17,7 @@ O código desta atualização pode ser publicado na `main` com `[skip render]` n
 - Cookie `HttpOnly`, `SameSite=Lax` e `Secure` em HTTPS; token aleatório de 256 bits e apenas seu SHA-256 armazenado. “Manter conectado” usa 30 dias, com renovação confirmada no armazenamento.
 - Senhas usam scrypt versionado, salt de 16 bytes, `N=65536`, `r=8`, `p=2`. Hashes antigos seguem válidos e são reforçados no login. Nenhuma senha em texto puro é salva.
 
-### Configuração externa necessária
+### Guia para futuras migrações de arquivo
 
 1. Preserve uma cópia privada do `DATA_FILE`/`data.json` **antes** de reiniciar, fazer deploy ou salvar novas variáveis no Render. O serviço Free atual não dispõe de Shell/SSH. Se não houver cópia, solicite ao provedor uma forma de extração; não existe endpoint público de exportação nesta aplicação.
 2. Escolha um PostgreSQL com retenção duradoura. O PostgreSQL Free do Render expira após 30 dias, portanto não resolve sozinho a exigência de retenção permanente. Não foi contratado nenhum plano pago.
@@ -66,7 +66,7 @@ As imagens fornecidas inspiraram SVGs originais: jardim em pixel art com placas/
 - Testes de regressão preservam abertura/áudio, prontidão de sessão, instaladores/downloads, seletor Electron e credenciais TURN.
 - Sintaxe dos scripts e `git diff --check` aprovados.
 
-Não foram executados: migração/deploy real com banco no Render, fechamento/reabertura de instalador Electron, captura de tela do sistema operacional, microfone/câmera reais nem chamada WebRTC entre dois dispositivos/redes. A prévia sintética valida os controles, não substitui esses testes de mídia.
+O deploy real e a conexão com PostgreSQL no Render foram concluídos posteriormente. Não foram executados: fechamento/reabertura de instalador Electron, captura de tela do sistema operacional, microfone/câmera reais nem chamada WebRTC entre dois dispositivos/redes. A prévia sintética valida os controles, não substitui esses testes de mídia.
 
 ## Arquivos modificados
 

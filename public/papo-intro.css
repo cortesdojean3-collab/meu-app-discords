@@ -303,6 +303,81 @@ html[data-papo-motion="full"] #papo-intro .intro-ready .intro-progress > i {
   100% { width: 92%; }
 }
 
+/* The anniversary keeps the original drive and motor timing. Only its decoration changes. */
+#papo-intro.intro-anniversary .intro-atmosphere {
+  background:
+    radial-gradient(ellipse at 52% 46%, #9270c82c, transparent 57%),
+    radial-gradient(ellipse at 7% 83%, #d5a1cc14, transparent 42%),
+    radial-gradient(ellipse at 94% 78%, #a987e916, transparent 42%),
+    linear-gradient(160deg, #211733, #150f23 68%, #171020);
+}
+#papo-intro.intro-anniversary .intro-horizon {
+  background: radial-gradient(ellipse at 50% 95%, #cea8eb30, #b798d80a 36%, transparent 68%);
+}
+#papo-intro.intro-anniversary .intro-road {
+  background: linear-gradient(90deg, transparent, #d5b5dd33 17%, #ebd1f257 50%, #d5b5dd33 83%, transparent);
+}
+#papo-intro.intro-anniversary .intro-van { width: min(clamp(240px, 38vw, 420px), 47vh); }
+#papo-intro .intro-event-note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 13px;
+  padding: 0 24px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 320ms ease;
+  pointer-events: none;
+}
+#papo-intro .intro-event-note p {
+  max-width: 440px;
+  margin: 0 auto;
+  color: #f1e5f9;
+  font-size: clamp(18px, 2.5vw, 25px);
+  line-height: 1.45;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+#papo-intro .intro-event-note strong {
+  color: #d5b9eb;
+  font-size: clamp(12px, 1.4vw, 14px);
+  font-weight: 500;
+  letter-spacing: .07em;
+}
+#papo-intro.intro-event-message .intro-brand > :not(.intro-event-note) { opacity: 0; visibility: hidden; }
+#papo-intro.intro-event-message .intro-event-note { opacity: 1; visibility: visible; }
+#papo-intro .intro-event-petals {
+  position: absolute;
+  inset: 26% 0 12%;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+#papo-intro .intro-event-petals i {
+  position: absolute;
+  left: var(--petal-x);
+  top: -20px;
+  width: 7px;
+  height: 12px;
+  border-radius: 75% 15% 75% 25%;
+  background: linear-gradient(135deg, #eed1ed, #b695d8);
+  opacity: 0;
+}
+html[data-papo-motion="full"] #papo-intro .intro-event-petals i {
+  animation: papo-intro-petal 3.6s ease-in-out var(--petal-delay) both;
+}
+#papo-intro .intro-event-petals i:nth-child(3n) { background: linear-gradient(135deg, #f4dddf, #d0a2c4); }
+@keyframes papo-intro-petal {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(-30deg); }
+  15% { opacity: .5; }
+  82% { opacity: .35; }
+  100% { opacity: 0; transform: translate3d(55px, 230px, 0) rotate(var(--petal-turn)); }
+}
+html[data-papo-motion="reduced"] #papo-intro .intro-event-petals { display: none; }
+html[data-papo-motion="reduced"] #papo-intro .intro-event-note { transition: none; }
+
 @media (max-width: 600px) {
   #papo-intro .intro-content { padding: 72px 0 60px; }
   #papo-intro .intro-eyebrow { font-size: 9px; letter-spacing: .21em; }
@@ -334,6 +409,9 @@ html[data-papo-motion="full"] #papo-intro .intro-ready .intro-progress > i {
   #papo-intro .intro-van { width: min(210px, 52vh); bottom: calc(21% - 5px); }
   #papo-intro .intro-actions { top: 10px; right: 14px; }
   #papo-intro .intro-actions button { min-height: 34px; padding: 7px 11px; }
+  #papo-intro .intro-event-note { gap: 8px; }
+  #papo-intro .intro-event-note p { max-width: 360px; font-size: 17px; }
+  #papo-intro .intro-event-note strong { font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -346,4 +424,6 @@ html[data-papo-motion="full"] #papo-intro .intro-ready .intro-progress > i {
   }
   html[data-papo-motion="full"] #papo-intro .intro-progress > i { animation: none; }
   html.papo-intro-pending.papo-intro-reveal body > *:not(#papo-intro) { transition: none; }
+  #papo-intro .intro-event-petals { display: none; }
+  #papo-intro .intro-event-note { transition: none; }
 }
